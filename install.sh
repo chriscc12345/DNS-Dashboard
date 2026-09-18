@@ -52,13 +52,16 @@ TECH_CONFIG="/etc/dns"
 TECH_HOST="127.0.0.1"
 TECH_PORT="5380"
 
-PORTAL_HOSTNAME="tech.chriscoetzer.co.za"
+DEFAULT_PORTAL_HOSTNAME="portal.example.com"
 
 SSL_DIR="/etc/ssl/portal"
 SSL_KEY="$SSL_DIR/server.key"
 SSL_CERT="$SSL_DIR/server.crt"
 
 API_SERVICE="portal-api.service"
+
+UPDATE_STATE_DIR="/var/lib/portal"
+UPDATE_STATE_FILE="$UPDATE_STATE_DIR/update-version"
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -109,6 +112,20 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+###############################################################################
+# Portal hostname
+###############################################################################
+
+read -r -p "Portal hostname [$DEFAULT_PORTAL_HOSTNAME]: " PORTAL_HOSTNAME
+PORTAL_HOSTNAME="${PORTAL_HOSTNAME:-$DEFAULT_PORTAL_HOSTNAME}"
+
+# Hostname only - no protocol, port, path, spaces, or shell metacharacters.
+if [[ ! "$PORTAL_HOSTNAME" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]]; then
+    fail "Invalid Portal hostname: $PORTAL_HOSTNAME"
+fi
+
+PORTAL_HOSTNAME="${PORTAL_HOSTNAME,,}"
 
 ###############################################################################
 # Root check
@@ -773,6 +790,10 @@ mkdir -p /etc/nginx/sites-enabled
 
 cp "$NGINX_CONFIG" /etc/nginx/sites-available/default
 
+sed -i \
+    "s/__PORTAL_HOSTNAME__/$PORTAL_HOSTNAME/g" \
+    /etc/nginx/sites-available/default
+
 ln -sfn \
     /etc/nginx/sites-available/default \
     /etc/nginx/sites-enabled/default
@@ -1349,6 +1370,54 @@ else
 fi
 
 ###############################################################################
+# Initialize Portal update state
+###############################################################################
+
+log "INITIALIZING PORTAL UPDATE STATE"
+
+mkdir -p "$UPDATE_STATE_DIR"
+chmod 755 "$UPDATE_STATE_DIR"
+
+if [[ ! -f "$UPDATE_STATE_FILE" ]]; then
+    printf '%s\n' "0" > "$UPDATE_STATE_FILE"
+    chmod 644 "$UPDATE_STATE_FILE"
+    ok "Portal update level initialized to 0"
+else
+    CURRENT_UPDATE_LEVEL="$(tr -d '[:space:]' < "$UPDATE_STATE_FILE")"
+
+    if [[ "$CURRENT_UPDATE_LEVEL" =~ ^[0-9]+$ ]]; then
+        ok "Existing Portal update level retained: $CURRENT_UPDATE_LEVEL"
+    else
+        fail "Invalid Portal update state: $UPDATE_STATE_FILE"
+    fi
+fi
+
+###############################################################################
+# Check for Portal updates
+###############################################################################
+
+log "CHECKING FOR PORTAL UPDATES"
+
+UPDATE_CHECKER="$SCRIPT_DIR/updates/check-updates.sh"
+
+if [[ -f "$UPDATE_CHECKER" ]]; then
+    chmod 755 "$UPDATE_CHECKER"
+
+    if "$UPDATE_CHECKER"; then
+        FINAL_UPDATE_LEVEL="$(tr -d '[:space:]' < "$UPDATE_STATE_FILE")"
+        ok "Portal update check completed - level $FINAL_UPDATE_LEVEL"
+    else
+        FINAL_UPDATE_LEVEL="$(tr -d '[:space:]' < "$UPDATE_STATE_FILE")"
+        warn "Portal update check failed - installed level remains $FINAL_UPDATE_LEVEL"
+        warn "Base Portal installation will remain active"
+    fi
+else
+    FINAL_UPDATE_LEVEL="$(tr -d '[:space:]' < "$UPDATE_STATE_FILE")"
+    warn "Portal update checker not found: $UPDATE_CHECKER"
+    warn "Installed update level remains $FINAL_UPDATE_LEVEL"
+fi
+
+###############################################################################
 # Cleanup
 ###############################################################################
 
@@ -1364,9 +1433,13 @@ unset TECH_API_TOKEN
 
 log "INSTALLATION COMPLETE"
 
+HOST_IP="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+(\.[0-9]+){3}$' || true)"
+HOST_IP="${HOST_IP:-Unknown}"
+
 echo
 echo "Portal:"
 echo "  HTTPS: https://$PORTAL_HOSTNAME"
+echo "  Host IP: $HOST_IP"
 echo "  FastAPI: http://127.0.0.1:8000"
 echo
 echo "Services:"
