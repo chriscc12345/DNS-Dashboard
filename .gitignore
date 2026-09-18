@@ -1,0 +1,30 @@
+# Secrets / environment
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Backups
+*.bak
+*.old
+*~
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs / runtime
+*.log
+*.pid
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/

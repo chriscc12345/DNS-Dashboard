@@ -1,0 +1,15 @@
+[Unit]
+Description=Portal FastAPI
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/portal/api
+Environment="PATH=/opt/portal/api/venv/bin"
+ExecStart=/opt/portal/api/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
