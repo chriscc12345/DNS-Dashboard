@@ -27,7 +27,7 @@ The installer deploys and configures:
 
 Clone the repository:
 
-    git clone <REPOSITORY-URL> /opt/portal-installer
+    git clone https://github.com/chriscc12345/DNS-Dashboard.git /opt/portal-installer
     cd /opt/portal-installer
 
 Run the installer:
@@ -49,9 +49,15 @@ configures Technitium integration, and performs final service checks.
 
 ## Portal
 
-Default Portal hostname:
+The installer asks for the Portal hostname during installation.
 
-    https://example.com/dashboard.php
+Default hostname:
+
+    portal.example.com
+
+Example Portal URL after installation:
+
+    https://portal.example.com/dashboard.php
 
 FastAPI listens locally on:
 

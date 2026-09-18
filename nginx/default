@@ -3,7 +3,7 @@ server {
     listen 80;
     listen [::]:80;
 
-    server_name tech.chriscoetzer.co.za;
+    server_name __PORTAL_HOSTNAME__;
 
     return 301 https://$host$request_uri;
 }
@@ -14,7 +14,7 @@ server {
     listen 443 ssl;
     listen [::]:443 ssl;
 
-    server_name tech.chriscoetzer.co.za;
+    server_name __PORTAL_HOSTNAME__;
 
     root /opt/portal/web;
 
