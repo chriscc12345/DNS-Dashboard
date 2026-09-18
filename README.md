@@ -51,7 +51,7 @@ configures Technitium integration, and performs final service checks.
 
 Default Portal hostname:
 
-    https://tech.chriscoetzer.co.za
+    https://example.com/dashboard.php
 
 FastAPI listens locally on:
 
