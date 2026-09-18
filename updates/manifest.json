@@ -1,5 +1,12 @@
 {
   "schema_version": 1,
-  "latest_update": 0,
-  "updates": []
+  "latest_update": 1,
+  "updates": [
+    {
+      "version": 1,
+      "name": "User Profile case-insensitive username fixes",
+      "filename": "update-001.sh",
+      "sha256": "f0cb197fe87a0b9bea0bc516b1ecb81fd6ec0be60de1d7952b6230d860466681"
+    }
+  ]
 }

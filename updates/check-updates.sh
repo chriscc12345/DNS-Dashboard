@@ -113,7 +113,7 @@ for entry in updates:
 
     version = entry.get("version")
     name = entry.get("name")
-    filename = entry.get("file")
+    filename = entry.get("filename")
     sha256 = entry.get("sha256")
 
     if not isinstance(version, int) or isinstance(version, bool) or version < 1:
@@ -190,7 +190,7 @@ with open(manifest_file, "r", encoding="utf-8") as f:
 for entry in data["updates"]:
     if entry["version"] == wanted_version:
         print(entry["name"])
-        print(entry["file"])
+        print(entry["filename"])
         print(entry["sha256"].lower())
         raise SystemExit(0)
 
