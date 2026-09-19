@@ -231,6 +231,7 @@ apt install -y \
     jq \
     nginx \
     openssl \
+    patch \
     postgresql \
     postgresql-client \
     python3 \
@@ -360,6 +361,20 @@ ok "Portal PostgreSQL credentials work"
 ###############################################################################
 
 log "INSTALLING PORTAL SOURCE"
+
+# Determine whether this is a genuinely fresh Portal installation before
+# creating or replacing any Portal runtime directories.
+#
+# Existing installations, including legacy installations that predate the
+# update framework, must not be forced through initial administrator setup.
+FRESH_PORTAL_INSTALL=0
+
+if [[ ! -d "$PORTAL_API" && ! -d "$PORTAL_WEB" ]]; then
+    FRESH_PORTAL_INSTALL=1
+    ok "Fresh Portal installation detected"
+else
+    ok "Existing Portal installation detected"
+fi
 
 mkdir -p "$PORTAL_ROOT"
 
@@ -1378,6 +1393,24 @@ log "INITIALIZING PORTAL UPDATE STATE"
 mkdir -p "$UPDATE_STATE_DIR"
 chmod 755 "$UPDATE_STATE_DIR"
 
+INSTALL_TIMESTAMP_FILE="$UPDATE_STATE_DIR/installed-at"
+
+if [[ "$FRESH_PORTAL_INSTALL" -eq 1 ]]; then
+    if [[ ! -f "$INSTALL_TIMESTAMP_FILE" ]]; then
+        date --iso-8601=seconds > "$INSTALL_TIMESTAMP_FILE"
+        chmod 644 "$INSTALL_TIMESTAMP_FILE"
+        ok "Portal installation timestamp recorded"
+    else
+        ok "Existing Portal installation timestamp retained"
+    fi
+else
+    if [[ -f "$INSTALL_TIMESTAMP_FILE" ]]; then
+        ok "Existing Portal installation timestamp retained"
+    else
+        ok "Legacy Portal installation - initial setup not required"
+    fi
+fi
+
 if [[ ! -f "$UPDATE_STATE_FILE" ]]; then
     printf '%s\n' "0" > "$UPDATE_STATE_FILE"
     chmod 644 "$UPDATE_STATE_FILE"
@@ -1415,6 +1448,69 @@ else
     FINAL_UPDATE_LEVEL="$(tr -d '[:space:]' < "$UPDATE_STATE_FILE")"
     warn "Portal update checker not found: $UPDATE_CHECKER"
     warn "Installed update level remains $FINAL_UPDATE_LEVEL"
+fi
+
+###############################################################################
+# Prepare fresh installation for initial administrator setup
+###############################################################################
+
+if [[ "$FRESH_PORTAL_INSTALL" -eq 1 ]]; then
+    if [[ "$FINAL_UPDATE_LEVEL" =~ ^[0-9]+$ ]] \
+       && (( FINAL_UPDATE_LEVEL >= 2 )) \
+       && [[ -f "$PORTAL_WEB/setup.php" ]]; then
+
+        log "PREPARING INITIAL ADMINISTRATOR SETUP"
+
+        PORT_SWITCH_RESPONSE="$(
+            curl -sS \
+                --max-time 10 \
+                -X POST \
+                -H "Authorization: Bearer $TECH_API_TOKEN" \
+                --get \
+                --data-urlencode "type=General" \
+                --data-urlencode "webServiceHttpPort=65432" \
+                "http://${TECH_HOST}:5380/api/settings/set" \
+                2>/dev/null || true
+        )"
+
+        # Changing the listener can close the HTTP connection before curl
+        # receives a complete response. Prove the result by checking the
+        # new port rather than trusting the settings response alone.
+        TECH_SETUP_PORT_READY=0
+
+        for _ in {1..10}; do
+            if curl -fsS \
+                --max-time 5 \
+                -H "Authorization: Bearer $TECH_API_TOKEN" \
+                "http://${TECH_HOST}:65432/api/user/profile/get" \
+                >/dev/null 2>&1; then
+
+                TECH_SETUP_PORT_READY=1
+                break
+            fi
+
+            sleep 1
+        done
+
+        if [[ "$TECH_SETUP_PORT_READY" -ne 1 ]]; then
+            fail "Technitium did not become available on temporary setup port 65432"
+        fi
+
+        # The normal HTTP listener must no longer be available during
+        # initial setup. setup.php/FastAPI will restore it to 5380 only
+        # after the administrator password has been changed successfully.
+        if curl -fsS \
+            --max-time 3 \
+            -H "Authorization: Bearer $TECH_API_TOKEN" \
+            "http://${TECH_HOST}:5380/api/user/profile/get" \
+            >/dev/null 2>&1; then
+            fail "Technitium is still available on port 5380 after setup-port switch"
+        fi
+
+        ok "Technitium temporarily moved to port 65432 for initial administrator setup"
+    else
+        warn "Initial administrator setup is unavailable - Technitium remains on port 5380"
+    fi
 fi
 
 ###############################################################################
