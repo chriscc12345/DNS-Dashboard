@@ -3431,12 +3431,23 @@ systemctl restart portal-api.service
 systemctl is-active --quiet portal-api.service \
     || fail "portal-api.service failed after Update 003"
 
-HTTP_STATUS="$(
-    curl -sS -o "$STAGE_DIR/stats-response.json" -w '%{http_code}' \
-        http://127.0.0.1:8000/stats || true
-)"
+HTTP_STATUS="000"
+
+for HEALTH_ATTEMPT in $(seq 1 30); do
+    HTTP_STATUS="$(
+        curl -sS -o "$STAGE_DIR/stats-response.json" -w '%{http_code}' \
+            http://127.0.0.1:8000/stats 2>/dev/null || true
+    )"
+
+    if [[ "$HTTP_STATUS" == "200" ]]; then
+        break
+    fi
+
+    sleep 1
+done
+
 [[ "$HTTP_STATUS" == "200" ]] \
-    || fail "Portal API /stats health check failed with HTTP $HTTP_STATUS"
+    || fail "Portal API /stats health check failed after 30 attempts with HTTP $HTTP_STATUS"
 
 RUNTIME_INSTALL_COMPLETE=1
 
