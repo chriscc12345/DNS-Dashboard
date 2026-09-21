@@ -97,16 +97,16 @@ done
     "SELECT COUNT(*) FROM groups WHERE LOWER(group_name)=LOWER('Administrators');")" == "1" ]] \
     || fail "Exactly one Administrators group is required"
 
-for permission_name in Appearance Security Customization "Edit User Fields" \
-                       Theme Sidebar "User Disclaimer"; do
+for permission_key in appearance security customization edit_user_fields \
+                      theme sidebar user_disclaimer; do
     permission_count="$(sudo -u postgres psql -d "$DB_NAME" -Atqc \
-        "SELECT COUNT(*) FROM permissions WHERE permission_name='${permission_name}';")"
+        "SELECT COUNT(*) FROM permissions WHERE permission_key='${permission_key}';")"
     [[ "$permission_count" -le 1 ]] \
-        || fail "Duplicate permission name detected: $permission_name"
+        || fail "Duplicate permission key detected: $permission_key"
 done
 
 [[ "$(sudo -u postgres psql -d "$DB_NAME" -Atqc \
-    "SELECT COUNT(*) FROM permissions WHERE permission_name IN ('Appearance','Security');")" == "2" ]] \
+    "SELECT COUNT(*) FROM permissions WHERE permission_key IN ('appearance','security');")" == "2" ]] \
     || fail "Required Appearance or Security permission is missing"
 
 STAGE_DIR="$(mktemp -d /tmp/portal-update-004.XXXXXX)"
@@ -9953,40 +9953,58 @@ ON CONFLICT (setting_key) DO UPDATE
 SET setting_value = EXCLUDED.setting_value,
     updated_at = EXCLUDED.updated_at;
 
-INSERT INTO permissions (permission_name, parent_id)
-SELECT 'Customization', NULL
-WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE permission_name='Customization');
+INSERT INTO permissions (permission_key, permission_name, parent_id)
+SELECT 'customization', 'Customization', NULL
+WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE permission_key='customization');
 
-INSERT INTO permissions (permission_name, parent_id)
-SELECT 'Edit User Fields', id FROM permissions WHERE permission_name='Security'
-AND NOT EXISTS (SELECT 1 FROM permissions WHERE permission_name='Edit User Fields');
+INSERT INTO permissions (permission_key, permission_name, parent_id)
+SELECT 'edit_user_fields', 'Edit User Fields', id
+FROM permissions WHERE permission_key='security'
+AND NOT EXISTS (SELECT 1 FROM permissions WHERE permission_key='edit_user_fields');
 
-INSERT INTO permissions (permission_name, parent_id)
-SELECT item.name, appearance.id
-FROM (VALUES ('Theme'), ('Sidebar'), ('User Disclaimer')) AS item(name)
+INSERT INTO permissions (permission_key, permission_name, parent_id)
+SELECT item.permission_key, item.permission_name, appearance.id
+FROM (VALUES
+    ('theme', 'Theme'),
+    ('sidebar', 'Sidebar'),
+    ('user_disclaimer', 'User Disclaimer')
+) AS item(permission_key, permission_name)
 CROSS JOIN permissions appearance
-WHERE appearance.permission_name='Appearance'
-  AND NOT EXISTS (SELECT 1 FROM permissions p WHERE p.permission_name=item.name);
+WHERE appearance.permission_key='appearance'
+  AND NOT EXISTS (
+      SELECT 1 FROM permissions p WHERE p.permission_key=item.permission_key
+  );
 
 UPDATE permissions
-SET parent_id=(SELECT id FROM permissions WHERE permission_name='Customization')
-WHERE permission_name='Appearance';
+SET permission_name='Customization', parent_id=NULL
+WHERE permission_key='customization';
 
 UPDATE permissions
-SET parent_id=(SELECT id FROM permissions WHERE permission_name='Security')
-WHERE permission_name='Edit User Fields';
+SET permission_name='Appearance',
+    parent_id=(SELECT id FROM permissions WHERE permission_key='customization')
+WHERE permission_key='appearance';
 
 UPDATE permissions
-SET parent_id=(SELECT id FROM permissions WHERE permission_name='Appearance')
-WHERE permission_name IN ('Theme','Sidebar','User Disclaimer');
+SET permission_name='Edit User Fields',
+    parent_id=(SELECT id FROM permissions WHERE permission_key='security')
+WHERE permission_key='edit_user_fields';
+
+UPDATE permissions
+SET permission_name=CASE permission_key
+        WHEN 'theme' THEN 'Theme'
+        WHEN 'sidebar' THEN 'Sidebar'
+        WHEN 'user_disclaimer' THEN 'User Disclaimer'
+    END,
+    parent_id=(SELECT id FROM permissions WHERE permission_key='appearance')
+WHERE permission_key IN ('theme','sidebar','user_disclaimer');
 
 INSERT INTO group_permissions (group_id, permission_id)
 SELECT g.id, p.id
 FROM groups g
 CROSS JOIN permissions p
 WHERE LOWER(g.group_name)=LOWER('Administrators')
-  AND p.permission_name IN (
-      'Customization','Appearance','Edit User Fields','Theme','Sidebar','User Disclaimer'
+  AND p.permission_key IN (
+      'customization','appearance','edit_user_fields','theme','sidebar','user_disclaimer'
   )
   AND NOT EXISTS (
       SELECT 1 FROM group_permissions gp
@@ -9996,10 +10014,10 @@ WHERE LOWER(g.group_name)=LOWER('Administrators')
 DELETE FROM group_permissions
 WHERE permission_id IN (
     SELECT id FROM permissions
-    WHERE permission_name IN ('Portal Name','Background','Button Colours')
+    WHERE permission_key IN ('portal_name','background','button_colours')
 );
 DELETE FROM permissions
-WHERE permission_name IN ('Portal Name','Background','Button Colours');
+WHERE permission_key IN ('portal_name','background','button_colours');
 
 INSERT INTO user_custom_field_sections (section_name, sort_order)
 SELECT 'Custom User Fields', 10
@@ -10061,11 +10079,18 @@ PERMISSION_MATCHES="$(sudo -u postgres psql -d "$DB_NAME" -Atqc "
 SELECT COUNT(*)
 FROM permissions child
 LEFT JOIN permissions parent ON parent.id=child.parent_id
-WHERE (child.permission_name='Customization' AND child.parent_id IS NULL)
-   OR (child.permission_name='Appearance' AND parent.permission_name='Customization')
-   OR (child.permission_name='Edit User Fields' AND parent.permission_name='Security')
-   OR (child.permission_name IN ('Theme','Sidebar','User Disclaimer')
-       AND parent.permission_name='Appearance');")"
+WHERE (child.permission_key='customization' AND child.permission_name='Customization'
+       AND child.parent_id IS NULL)
+   OR (child.permission_key='appearance' AND child.permission_name='Appearance'
+       AND parent.permission_key='customization')
+   OR (child.permission_key='edit_user_fields' AND child.permission_name='Edit User Fields'
+       AND parent.permission_key='security')
+   OR (child.permission_key='theme' AND child.permission_name='Theme'
+       AND parent.permission_key='appearance')
+   OR (child.permission_key='sidebar' AND child.permission_name='Sidebar'
+       AND parent.permission_key='appearance')
+   OR (child.permission_key='user_disclaimer' AND child.permission_name='User Disclaimer'
+       AND parent.permission_key='appearance');")"
 [[ "$PERMISSION_MATCHES" == "6" ]] || fail "Permission hierarchy validation failed"
 
 ADMIN_PERMISSION_MATCHES="$(sudo -u postgres psql -d "$DB_NAME" -Atqc "
@@ -10073,12 +10098,12 @@ SELECT COUNT(*) FROM group_permissions gp
 JOIN groups g ON g.id=gp.group_id
 JOIN permissions p ON p.id=gp.permission_id
 WHERE LOWER(g.group_name)=LOWER('Administrators')
-AND p.permission_name IN
-('Customization','Appearance','Edit User Fields','Theme','Sidebar','User Disclaimer');")"
+AND p.permission_key IN
+('customization','appearance','edit_user_fields','theme','sidebar','user_disclaimer');")"
 [[ "$ADMIN_PERMISSION_MATCHES" == "6" ]] || fail "Administrator permission validation failed"
 
 [[ "$(sudo -u postgres psql -d "$DB_NAME" -Atqc \
-    "SELECT COUNT(*) FROM permissions WHERE permission_name IN ('Portal Name','Background','Button Colours');")" == "0" ]] \
+    "SELECT COUNT(*) FROM permissions WHERE permission_key IN ('portal_name','background','button_colours');")" == "0" ]] \
     || fail "Obsolete permission cleanup validation failed"
 
 [[ "$(sudo -u postgres psql -d "$DB_NAME" -Atqc \
