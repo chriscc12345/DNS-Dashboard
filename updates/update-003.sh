@@ -76,8 +76,9 @@ DUPLICATE_USERNAME_COUNT="$(
 
 [[ "$DUPLICATE_USERNAME_COUNT" =~ ^[0-9]+$ ]] \
     || fail "Unable to validate duplicate user profiles"
-[[ "$DUPLICATE_USERNAME_COUNT" -eq 0 ]] \
-    || fail "Duplicate case-insensitive user profiles must be resolved first"
+if [[ "$DUPLICATE_USERNAME_COUNT" -gt 0 ]]; then
+    warn "$DUPLICATE_USERNAME_COUNT case-insensitive duplicate profile name(s) will be merged"
+fi
 
 ok "Database preflight passed"
 
@@ -3141,6 +3142,150 @@ log "APPLYING DATABASE CHANGES"
 
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "$DB_NAME" <<'SQL'
 BEGIN;
+
+-- Update 003 makes usernames case-insensitive. Historical profiles that
+-- differ only by capitalization represent the same account. Prefer the
+-- spelling already used by user_groups, then the profile with a group, then
+-- the oldest profile ID. Fill blank fields from the redundant variants before
+-- removing them.
+CREATE TEMP TABLE update003_profile_keepers ON COMMIT DROP AS
+SELECT
+    ranked.normalized_username,
+    ranked.id AS keep_id
+FROM (
+    SELECT
+        up.id,
+        LOWER(up.username) AS normalized_username,
+        ROW_NUMBER() OVER (
+            PARTITION BY LOWER(up.username)
+            ORDER BY
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM user_groups ug
+                        WHERE ug.username = up.username
+                    ) THEN 0
+                    ELSE 1
+                END,
+                CASE WHEN up.group_id IS NOT NULL THEN 0 ELSE 1 END,
+                up.id
+        ) AS profile_rank
+    FROM user_profiles up
+) ranked
+WHERE ranked.profile_rank = 1;
+
+UPDATE user_profiles keep
+SET
+    display_name = COALESCE(
+        NULLIF(BTRIM(keep.display_name), ''),
+        (
+            SELECT NULLIF(BTRIM(candidate.display_name), '')
+            FROM user_profiles candidate
+            WHERE LOWER(candidate.username) = LOWER(keep.username)
+              AND candidate.id <> keep.id
+              AND NULLIF(BTRIM(candidate.display_name), '') IS NOT NULL
+            ORDER BY candidate.id
+            LIMIT 1
+        ),
+        keep.display_name
+    ),
+    surname = COALESCE(
+        NULLIF(BTRIM(keep.surname), ''),
+        (
+            SELECT NULLIF(BTRIM(candidate.surname), '')
+            FROM user_profiles candidate
+            WHERE LOWER(candidate.username) = LOWER(keep.username)
+              AND candidate.id <> keep.id
+              AND NULLIF(BTRIM(candidate.surname), '') IS NOT NULL
+            ORDER BY candidate.id
+            LIMIT 1
+        )
+    ),
+    department = COALESCE(
+        NULLIF(BTRIM(keep.department), ''),
+        (
+            SELECT NULLIF(BTRIM(candidate.department), '')
+            FROM user_profiles candidate
+            WHERE LOWER(candidate.username) = LOWER(keep.username)
+              AND candidate.id <> keep.id
+              AND NULLIF(BTRIM(candidate.department), '') IS NOT NULL
+            ORDER BY candidate.id
+            LIMIT 1
+        )
+    ),
+    email_address = COALESCE(
+        NULLIF(BTRIM(keep.email_address), ''),
+        (
+            SELECT NULLIF(BTRIM(candidate.email_address), '')
+            FROM user_profiles candidate
+            WHERE LOWER(candidate.username) = LOWER(keep.username)
+              AND candidate.id <> keep.id
+              AND NULLIF(BTRIM(candidate.email_address), '') IS NOT NULL
+            ORDER BY candidate.id
+            LIMIT 1
+        )
+    ),
+    country_code = COALESCE(
+        NULLIF(BTRIM(keep.country_code), ''),
+        (
+            SELECT NULLIF(BTRIM(candidate.country_code), '')
+            FROM user_profiles candidate
+            WHERE LOWER(candidate.username) = LOWER(keep.username)
+              AND candidate.id <> keep.id
+              AND NULLIF(BTRIM(candidate.country_code), '') IS NOT NULL
+            ORDER BY candidate.id
+            LIMIT 1
+        )
+    ),
+    mobile_number = COALESCE(
+        NULLIF(BTRIM(keep.mobile_number), ''),
+        (
+            SELECT NULLIF(BTRIM(candidate.mobile_number), '')
+            FROM user_profiles candidate
+            WHERE LOWER(candidate.username) = LOWER(keep.username)
+              AND candidate.id <> keep.id
+              AND NULLIF(BTRIM(candidate.mobile_number), '') IS NOT NULL
+            ORDER BY candidate.id
+            LIMIT 1
+        )
+    ),
+    photo = COALESCE(
+        NULLIF(BTRIM(keep.photo), ''),
+        (
+            SELECT NULLIF(BTRIM(candidate.photo), '')
+            FROM user_profiles candidate
+            WHERE LOWER(candidate.username) = LOWER(keep.username)
+              AND candidate.id <> keep.id
+              AND NULLIF(BTRIM(candidate.photo), '') IS NOT NULL
+            ORDER BY candidate.id
+            LIMIT 1
+        )
+    ),
+    group_id = COALESCE(
+        keep.group_id,
+        (
+            SELECT candidate.group_id
+            FROM user_profiles candidate
+            WHERE LOWER(candidate.username) = LOWER(keep.username)
+              AND candidate.id <> keep.id
+              AND candidate.group_id IS NOT NULL
+            ORDER BY candidate.id
+            LIMIT 1
+        )
+    )
+FROM update003_profile_keepers keeper
+WHERE keep.id = keeper.keep_id
+  AND EXISTS (
+      SELECT 1
+      FROM user_profiles duplicate
+      WHERE LOWER(duplicate.username) = keeper.normalized_username
+        AND duplicate.id <> keeper.keep_id
+  );
+
+DELETE FROM user_profiles duplicate
+USING update003_profile_keepers keeper
+WHERE LOWER(duplicate.username) = keeper.normalized_username
+  AND duplicate.id <> keeper.keep_id;
 
 CREATE TABLE IF NOT EXISTS portal_settings (
     setting_key VARCHAR(100) PRIMARY KEY,
