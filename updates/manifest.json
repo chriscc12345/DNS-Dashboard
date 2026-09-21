@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "latest_update": 3,
+  "latest_update": 4,
   "updates": [
     {
       "version": 1,
@@ -19,6 +19,12 @@
       "name": "Profiles, appearance, themes and favicon management",
       "filename": "update-003.sh",
       "sha256": "1312954a28c950ce6f4bf7c52db184ae02f51890cf7be0d032c46cf94319183c"
+    },
+    {
+      "version": 4,
+      "name": "Complete customization configuration and permissions",
+      "filename": "update-004.sh",
+      "sha256": "154201aff89238254a5c290f62392ca9faf63641290018bccfd9c5b7c5f6aada"
     }
   ]
 }
