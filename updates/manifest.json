@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "latest_update": 2,
+  "latest_update": 3,
   "updates": [
     {
       "version": 1,
@@ -13,6 +13,12 @@
       "name": "User management and initial administrator setup",
       "filename": "update-002.sh",
       "sha256": "c884cd1df28989bcbf5821abc80a02750f10fdab7cbe736f4148cd196d1d2cb3"
+    },
+    {
+      "version": 3,
+      "name": "Profiles, appearance, themes and favicon management",
+      "filename": "update-003.sh",
+      "sha256": "60eb5632d20bfae1f461be1bb2fae4e906af27a603c2d5849de5c1620e73967b"
     }
   ]
 }
