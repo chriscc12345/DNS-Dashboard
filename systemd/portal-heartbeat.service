@@ -1,0 +1,6 @@
+[Unit]
+Description=Portal connectivity heartbeat sender
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/portal/scripts/heartbeat.py

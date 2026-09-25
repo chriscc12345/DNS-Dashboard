@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "latest_update": 4,
+  "latest_update": 5,
   "updates": [
     {
       "version": 1,
@@ -25,6 +25,12 @@
       "name": "Complete customization configuration and permissions",
       "filename": "update-004.sh",
       "sha256": "3cf1bcb0989179be57fa50dea80f850e5a97a472deea6c193044924996007af0"
+    },
+    {
+      "version": 5,
+      "name": "Portal identity, two-factor authentication, monitoring and DNS services",
+      "filename": "update-005.sh",
+      "sha256": "6b470783477afcb4691da2e22e924fe48e3b8612bb9d5021148912f7356534f8"
     }
   ]
 }
