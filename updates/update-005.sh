@@ -139,9 +139,25 @@ MON_SCHEMA_B64="$STAGE_DIR/monitoring-schema.sql.b64"
 
 log "BACKING UP CURRENT STATE"
 
+# Only paths that exist on the target are backed up:
+# notifier.py and scripts/ are NEW in this update and do
+# not exist on a portal that is still at update level 4.
+
+BACKUP_PATHS=""
+for _path in \
+    opt/portal/api/main.py \
+    opt/portal/api/notifier.py \
+    opt/portal/scripts \
+    opt/portal/web
+do
+    [[ -e "/$_path" ]] && BACKUP_PATHS="$BACKUP_PATHS $_path"
+done
+
+[[ -n "$BACKUP_PATHS" ]] \
+    || fail "nothing to back up"
+
 tar -czf "$BACKUP_DIR/code-before.tar.gz" \
-    -C / opt/portal/api/main.py opt/portal/api/notifier.py \
-       opt/portal/scripts opt/portal/web 2>/dev/null \
+    -C / $BACKUP_PATHS 2>/dev/null \
     || fail "code backup failed"
 CODE_BACKUP_DONE=1
 ok "Code tree backed up"
