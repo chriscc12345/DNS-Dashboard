@@ -30,7 +30,7 @@
       "version": 5,
       "name": "Portal identity, two-factor authentication, monitoring and DNS services",
       "filename": "update-005.sh",
-      "sha256": "4c612a093a8b052f513bdff984a2ad088b8a7f19e720f7200f50ff02c59d7ea0"
+      "sha256": "4b2ad990aa8d681fc41951787c8c312974bd8986913c86c0aa32fe2c273e7311"
     }
   ]
 }
