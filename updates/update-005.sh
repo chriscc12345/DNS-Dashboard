@@ -136,6 +136,7 @@ PAYLOAD_B64="$STAGE_DIR/update005-payload.tar.gz.b64"
 PERMISSIONS_B64="$STAGE_DIR/permissions.csv.b64"
 SETTINGS_B64="$STAGE_DIR/portal-settings.csv.b64"
 MON_SCHEMA_B64="$STAGE_DIR/monitoring-schema.sql.b64"
+GRANTS_B64="$STAGE_DIR/group-grants.csv.b64"
 
 log "BACKING UP CURRENT STATE"
 
@@ -5013,10 +5014,44 @@ aTBtaEtGdmttbXpYWDlBZXpMRkZQa2lQenE1N2NsYgoK
 
 UPDATE005_MONSCHEMA_B64
 
+cat > "$GRANTS_B64" <<'UPDATE005_GRANTS_B64'
+QWRtaW5pc3RyYXRvcnN8YXBpX3NlcnZlcgpBZG1pbmlzdHJhdG9yc3xhcHBlYXJhbmNlCkFkbWlu
+aXN0cmF0b3JzfGFwcHJvdmVfcmVxdWVzdHMKQWRtaW5pc3RyYXRvcnN8YmFubmVyCkFkbWluaXN0
+cmF0b3JzfGJsb2NraW5nCkFkbWluaXN0cmF0b3JzfGNhY2hlCkFkbWluaXN0cmF0b3JzfGNvbm5l
+Y3Rpdml0eV9zdGF0dXMKQWRtaW5pc3RyYXRvcnN8Y3VzdG9taXphdGlvbgpBZG1pbmlzdHJhdG9y
+c3xkYXNoYm9hcmQKQWRtaW5pc3RyYXRvcnN8ZGF0YWJhc2Vfc2VydmVyCkFkbWluaXN0cmF0b3Jz
+fGRhdGFfZGVsZXRpb24KQWRtaW5pc3RyYXRvcnN8ZGVueV9yZXF1ZXN0cwpBZG1pbmlzdHJhdG9y
+c3xkaGNwCkFkbWluaXN0cmF0b3JzfGRuc19zZXJ2ZXIKQWRtaW5pc3RyYXRvcnN8ZG5zX3NlcnZl
+cl9zdGF0dXMKQWRtaW5pc3RyYXRvcnN8ZWRpdF9tb25pdG9yCkFkbWluaXN0cmF0b3JzfGVkaXRf
+dXNlcl9maWVsZHMKQWRtaW5pc3RyYXRvcnN8ZW1haWxfbm90aWZpY2F0aW9ucwpBZG1pbmlzdHJh
+dG9yc3xlbmFibGVfZGlzYWJsZV9jYWNoZQpBZG1pbmlzdHJhdG9yc3xmYXZpY29uCkFkbWluaXN0
+cmF0b3JzfGZsdXNoX2NhY2hlCkFkbWluaXN0cmF0b3JzfGdlbmVyYWwKQWRtaW5pc3RyYXRvcnN8
+aHR0cHNfc3NsCkFkbWluaXN0cmF0b3JzfGxvZ2luCkFkbWluaXN0cmF0b3JzfGxvZ2luX25vdGlm
+aWNhdGlvbgpBZG1pbmlzdHJhdG9yc3xsb2dvCkFkbWluaXN0cmF0b3JzfG1vbml0b3IKQWRtaW5p
+c3RyYXRvcnN8bW9uaXRvcl9hbGVydHMKQWRtaW5pc3RyYXRvcnN8bmV0d29yawpBZG1pbmlzdHJh
+dG9yc3xuZXR3b3JrX3Byb3h5CkFkbWluaXN0cmF0b3JzfG5vdGlmaWNhdGlvbnMKQWRtaW5pc3Ry
+YXRvcnN8bm90aWZpY2F0aW9uX3NldHRpbmdzCkFkbWluaXN0cmF0b3JzfHBlbmRpbmdfcmVxdWVz
+dHMKQWRtaW5pc3RyYXRvcnN8cHVzaGJ1bGxldApBZG1pbmlzdHJhdG9yc3xwdXNoX25vdGlmaWNh
+dGlvbnMKQWRtaW5pc3RyYXRvcnN8cmVjdXJzaW9uCkFkbWluaXN0cmF0b3JzfHJlcG9ydHMKQWRt
+aW5pc3RyYXRvcnN8c2VjdXJpdHkKQWRtaW5pc3RyYXRvcnN8c2Vzc2lvbl90aW1lb3V0CkFkbWlu
+aXN0cmF0b3JzfHNpZGViYXIKQWRtaW5pc3RyYXRvcnN8c3lzdGVtX3N0YXR1cwpBZG1pbmlzdHJh
+dG9yc3x0ZWNobml0aXVtCkFkbWluaXN0cmF0b3JzfHRlbGVncmFtCkFkbWluaXN0cmF0b3JzfHRo
+ZW1lCkFkbWluaXN0cmF0b3JzfHRoaXJkX3BhcnR5X2ludGVncmF0aW9ucwpBZG1pbmlzdHJhdG9y
+c3x0aW1lX3pvbmUKQWRtaW5pc3RyYXRvcnN8dXNlcl9kaXNjbGFpbWVyCkFkbWluaXN0cmF0b3Jz
+fHVzZXJfZ3JvdXBzCkFkbWluaXN0cmF0b3JzfHVzZXJfbWFuYWdlbWVudApBZG1pbmlzdHJhdG9y
+c3x1c2VycwpBZG1pbmlzdHJhdG9yc3x2aWV3X21vbml0b3IKQWRtaW5pc3RyYXRvcnN8d2hhdHNh
+cHAKT3BlcmF0b3JzfGFwcHJvdmVfcmVxdWVzdHMKT3BlcmF0b3JzfGRhc2hib2FyZApPcGVyYXRv
+cnN8ZGVueV9yZXF1ZXN0cwpPcGVyYXRvcnN8ZWRpdF9tb25pdG9yCk9wZXJhdG9yc3xtb25pdG9y
+Ck9wZXJhdG9yc3xwZW5kaW5nX3JlcXVlc3RzCk9wZXJhdG9yc3xyZXF1ZXN0X3VuYmxvY2sKT3Bl
+cmF0b3JzfHRpbWVfem9uZQpPcGVyYXRvcnN8dmlld19tb25pdG9yCg==
+
+UPDATE005_GRANTS_B64
+
 base64 -d "$PAYLOAD_B64" > "$STAGE_DIR/update005-payload.tar.gz"
 base64 -d "$PERMISSIONS_B64" > "$STAGE_DIR/permissions.csv"
 base64 -d "$SETTINGS_B64" > "$STAGE_DIR/portal-settings.csv"
 base64 -d "$MON_SCHEMA_B64" > "$STAGE_DIR/monitoring-schema.sql"
+base64 -d "$GRANTS_B64" > "$STAGE_DIR/group-grants.csv"
 
 ok "Payload staged ($(tar -tzf "$STAGE_DIR/update005-payload.tar.gz" | wc -l) files)"
 
@@ -5089,67 +5124,102 @@ ALTER TABLE portal_auth
     ADD COLUMN IF NOT EXISTS totp_pending_secret VARCHAR(255),
     ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS totp_last_timestep BIGINT;
+
+ALTER TABLE requests
+    ADD COLUMN IF NOT EXISTS requested_by VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS allow_minutes INTEGER,
+    ADD COLUMN IF NOT EXISTS submitted_by VARCHAR(100);
 SQL
 
 ok "portal_auth ready (portal-owned credentials + two-factor)"
 
-python3 - "$STAGE_DIR/permissions.csv" > "$STAGE_DIR/permission-upsert.sql" <<'PYEOF' || fail "permission stage failed"
+# The permission tree is REPLACED with the shipped tree: an
+# update-004 portal still carries the old node names (Allow
+# Lists / Block Lists / DNS Server ...) which the current
+# pages no longer recognise. The rebuild maps every group
+# back to its permissions by key, so nothing is lost.
+
+python3 - "$STAGE_DIR/permissions.csv" "$STAGE_DIR/group-grants.csv" > "$STAGE_DIR/permissions-full.sql" <<'PYEOF' || fail "permission stage failed"
 import sys
 
-rows = []
+perm_rows = []
 for line in open(sys.argv[1], encoding="utf-8"):
     line = line.strip()
     if not line:
         continue
     perm_id, parent, key, name = line.split("|", 3)
-    parent_sql = "NULL" if parent == "" else parent
-    rows.append(
+    perm_rows.append(
         "    (%s, %s, '%s', '%s')"
         % (
             int(perm_id),
-            parent_sql,
+            "NULL" if parent == "" else parent,
             key.replace("'", "''"),
             name.replace("'", "''"),
         )
     )
 
-print("INSERT INTO permissions (id, parent_id, permission_key, permission_name) VALUES")
-print(",\n".join(rows) + "")
+grant_rows = []
+for line in open(sys.argv[2], encoding="utf-8"):
+    line = line.strip()
+    if not line or "|" not in line:
+        continue
+    group_name, key = line.split("|", 1)
+    grant_rows.append(
+        "    ('%s', '%s')"
+        % (
+            group_name.replace("'", "''"),
+            key.replace("'", "''"),
+        )
+    )
+
+print("BEGIN;")
+print("CREATE TEMP TABLE perm_import (id INTEGER, parent INTEGER, key TEXT, name TEXT) ON COMMIT DROP;")
+print("INSERT INTO perm_import VALUES")
+print(",\n".join(perm_rows) + ";")
+print("CREATE TEMP TABLE grant_import (group_name TEXT, key TEXT) ON COMMIT DROP;")
+print("INSERT INTO grant_import VALUES")
+print(",\n".join(grant_rows) + ";")
+print("CREATE TEMP TABLE grants_snapshot AS")
+print("SELECT gp.group_id, p.permission_key")
+print("FROM group_permissions gp JOIN permissions p ON p.id = gp.permission_id;")
+print("DELETE FROM permissions;")
+print("INSERT INTO permissions (id, parent_id, permission_key, permission_name)")
+print("SELECT id, NULL, key, name FROM perm_import WHERE parent IS NULL;")
+
+for _ in range(4):
+    print("INSERT INTO permissions (id, parent_id, permission_key, permission_name)")
+    print("SELECT i.id, i.parent, i.key, i.name FROM perm_import i")
+    print("WHERE i.parent IS NOT NULL")
+    print("  AND EXISTS (SELECT 1 FROM permissions p WHERE p.id = i.parent)")
+    print("  AND NOT EXISTS (SELECT 1 FROM permissions p WHERE p.id = i.id);")
+
+print("INSERT INTO group_permissions (group_id, permission_id)")
+print("SELECT g.id, p.id")
+print("FROM grant_import gi")
+print("JOIN groups g ON g.group_name = gi.group_name")
+print("JOIN permissions p ON p.permission_key = gi.key")
 print("ON CONFLICT DO NOTHING;")
+print("INSERT INTO group_permissions (group_id, permission_id)")
+print("SELECT gs.group_id, p.id")
+print("FROM grants_snapshot gs")
+print("JOIN permissions p ON p.permission_key = gs.permission_key")
+print("ON CONFLICT DO NOTHING;")
+print("SELECT setval(pg_get_serial_sequence('permissions','id'),")
+print("COALESCE((SELECT MAX(id) FROM permissions), 1),")
+print("EXISTS (SELECT 1 FROM permissions));")
+print("COMMIT;")
 PYEOF
-
-cat > "$STAGE_DIR/permissions-full.sql" <<'SQL'
-BEGIN;
-CREATE TEMP TABLE update005_pre_ids ON COMMIT DROP AS
-    SELECT id FROM permissions;
-SQL
-cat "$STAGE_DIR/permission-upsert.sql" >> "$STAGE_DIR/permissions-full.sql"
-cat >> "$STAGE_DIR/permissions-full.sql" <<'SQL'
-
-INSERT INTO group_permissions (group_id, permission_id)
-SELECT g.id, p.id
-FROM groups g
-CROSS JOIN permissions p
-WHERE p.id NOT IN (SELECT id FROM update005_pre_ids)
-  AND NOT EXISTS (
-        SELECT 1
-        FROM group_permissions gp
-        WHERE gp.group_id = g.id
-          AND gp.permission_id = p.id
-  )
-  AND (
-        SELECT count(*)
-        FROM group_permissions gp
-        WHERE gp.group_id = g.id
-          AND gp.permission_id IN (SELECT id FROM update005_pre_ids)
-  ) = (SELECT count(*) FROM update005_pre_ids);
-COMMIT;
-SQL
 
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d "$DB_NAME" < "$STAGE_DIR/permissions-full.sql" >/dev/null \
     || fail "permission migration failed"
 
-ok "Permissions synced (new nodes granted to full-privilege groups)"
+PERM_COUNT="$(sudo -u postgres psql -At -d "$DB_NAME" -c "SELECT count(*) FROM permissions")" \
+    || fail "permission verification failed"
+
+[[ "$PERM_COUNT" -ge 55 ]] \
+    || fail "permission rebuild incomplete ($PERM_COUNT/55 nodes)"
+
+ok "Permission tree reconciled ($PERM_COUNT nodes, group grants mapped by key)"
 
 python3 - "$STAGE_DIR/portal-settings.csv" > "$STAGE_DIR/settings-seed.sql" <<'PYEOF' || fail "settings stage failed"
 import sys
