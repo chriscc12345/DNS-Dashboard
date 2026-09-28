@@ -26,6 +26,7 @@ set -Eeuo pipefail
 
 LAUNCHER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TECHNITIUM_INSTALLER="$LAUNCHER_DIR/installers/install-technitium.sh"
+FIREWALL_INSTALLER="$LAUNCHER_DIR/installers/install-firewall.sh"
 
 BACKEND=""
 
@@ -74,7 +75,7 @@ if [[ -z "$BACKEND" ]]; then
             --menu "\nSelect the deployment architecture:" \
             15 78 2 \
             "1" "Management Portal + Technitium DNS   (recommended)" \
-            "2" "Management Portal + Firewall Appliance   (coming soon)" \
+            "2" "Management Portal + NetFortress Firewall Appliance" \
             3>&1 1>&2 2>&3)" || {
                 echo "[INFO] Selection cancelled"
                 exit 1
@@ -93,7 +94,7 @@ if [[ -z "$BACKEND" ]]; then
         echo " Portal Deployment - select the architecture:"
         echo "======================================================"
         echo "  1) Management Portal + Technitium DNS   (recommended)"
-        echo "  2) Management Portal + Firewall Appliance (coming soon)"
+        echo "  2) Management Portal + NetFortress Firewall Appliance"
         echo
         read -r -p "Choice [1-2]: " CHOICE
 
@@ -115,26 +116,21 @@ echo "======================================================================"
 echo " Portal deployment: $BACKEND"
 echo "======================================================================"
 
-if [[ "$BACKEND" == "firewall" ]]; then
-    cat <<'MSG'
-
-[INFO] The Firewall Appliance backend arrives with the Portal
-[INFO] provider abstraction release. It will install the
-[INFO] Management Portal only and drive DNS/network services
-[INFO] through the Firewall Appliance API.
-[INFO]
-[INFO] This release supports the Technitium backend.
-
-MSG
+if [[ "$BACKEND" == "firewall" ]] && [[ ! -f "$FIREWALL_INSTALLER" ]]; then
+    echo "[ERROR] Installer not found: $FIREWALL_INSTALLER" >&2
     exit 1
 fi
 
-if [[ ! -f "$TECHNITIUM_INSTALLER" ]]; then
+if [[ "$BACKEND" == "technitium" ]] && [[ ! -f "$TECHNITIUM_INSTALLER" ]]; then
     echo "[ERROR] Installer not found: $TECHNITIUM_INSTALLER" >&2
     exit 1
 fi
 
-bash "$TECHNITIUM_INSTALLER"
+if [[ "$BACKEND" == "firewall" ]]; then
+    bash "$FIREWALL_INSTALLER"
+else
+    bash "$TECHNITIUM_INSTALLER"
+fi
 
 ###############################################################################
 # Record the selected architecture

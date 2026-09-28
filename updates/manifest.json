@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "latest_update": 5,
+  "latest_update": 6,
   "updates": [
     {
       "version": 1,
@@ -31,6 +31,12 @@
       "name": "Portal identity, two-factor authentication, monitoring and DNS services",
       "filename": "update-005.sh",
       "sha256": "4b2ad990aa8d681fc41951787c8c312974bd8986913c86c0aa32fe2c273e7311"
+    },
+    {
+      "version": 6,
+      "name": "Network Services Provider Abstraction and Firewall Appliance Support",
+      "filename": "update-006.sh",
+      "sha256": "db5ad54e227147b98230e06e6ccfd63dadca5adc2bd7228901d44c867150bd84"
     }
   ]
 }
