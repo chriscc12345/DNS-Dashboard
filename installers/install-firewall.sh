@@ -490,6 +490,207 @@ PYFIREWALLPLACEHOLDER
 ok "Portal source installed"
 
 ###############################################################################
+# Prepare the Portal source for the update chain
+#
+# The update chain (001-006) is built against the Portal source in
+# the state this patch produces: Technitium requests use the
+# TECHNITIUM_HEADERS bearer header and the header definition sits
+# directly after the config import. The exact same preparation the
+# Technitium installer performs; without it update 002 does not
+# apply cleanly. The Technitium code paths are never used by this
+# deployment - the provider layer (update 006) replaces them - but
+# the source must still be prepared for the updates to run.
+###############################################################################
+
+log "PREPARING PORTAL SOURCE FOR UPDATES"
+
+MAIN_PY="$PORTAL_API/main.py"
+
+if [[ ! -f "$MAIN_PY" ]]; then
+    fail "Portal main.py not found."
+fi
+
+cp "$MAIN_PY" "${MAIN_PY}.pre-technitium-patch"
+
+python3 - "$MAIN_PY" <<'PY'
+from pathlib import Path
+import ast
+import re
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+original = text
+
+try:
+    tree = ast.parse(text)
+except SyntaxError as exc:
+    raise SystemExit(f"Portal main.py could not be parsed: {exc}")
+
+lines = text.splitlines(keepends=True)
+line_offsets = [0]
+for line in lines:
+    line_offsets.append(line_offsets[-1] + len(line))
+
+def absolute_offset(lineno, col):
+    return line_offsets[lineno - 1] + col
+
+token_calls = []
+
+for node in ast.walk(tree):
+    if not isinstance(node, ast.Call):
+        continue
+
+    func = node.func
+    if not (
+        isinstance(func, ast.Attribute)
+        and func.attr in ("get", "post")
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "requests"
+    ):
+        continue
+
+    segment = ast.get_source_segment(text, node) or ""
+
+    if "/api/user/login" in segment:
+        continue
+
+    if "TECHNITIUM_TOKEN" not in segment:
+        continue
+
+    if not hasattr(node, "end_lineno") or node.end_lineno is None:
+        raise SystemExit("Python AST did not provide request-call end positions.")
+
+    start = absolute_offset(node.lineno, node.col_offset)
+    end = absolute_offset(node.end_lineno, node.end_col_offset)
+
+    token_calls.append((start, end))
+
+if not token_calls:
+    raise SystemExit(
+        "No Technitium requests using TECHNITIUM_TOKEN were found in Portal main.py."
+    )
+
+for start, end in sorted(token_calls, reverse=True):
+    block = text[start:end]
+    original_block = block
+
+    token_pattern = r'["\']token["\']\s*:\s*TECHNITIUM_TOKEN\s*,?'
+
+    block, token_count = re.subn(
+        token_pattern,
+        '',
+        block,
+        count=1
+    )
+
+    if token_count != 1:
+        raise SystemExit(
+            "Could not remove TECHNITIUM_TOKEN from a Technitium request."
+        )
+
+    if "TECHNITIUM_TOKEN" in block:
+        raise SystemExit(
+            "Unsupported TECHNITIUM_TOKEN syntax found in a requests call; "
+            "Portal main.py was not modified."
+        )
+
+    if "headers=TECHNITIUM_HEADERS" not in block:
+        m = re.search(
+            r'(?m)^([ \t]*)(params|data|json|timeout)[ \t]*=',
+            block
+        )
+
+        if m:
+            indent = m.group(1)
+            pos = m.start()
+            block = (
+                block[:pos]
+                + f"{indent}headers=TECHNITIUM_HEADERS,\n"
+                + block[pos:]
+            )
+        else:
+            closing = block.rfind(")")
+            if closing == -1:
+                raise SystemExit(
+                    "Could not safely add Technitium Authorization header."
+                )
+
+            indent_match = re.search(r'\n([ \t]+)\S', block)
+            indent = indent_match.group(1) if indent_match else "    "
+
+            prefix = block[:closing]
+            if not prefix.endswith("\n"):
+                prefix += "\n"
+
+            block = (
+                prefix
+                + f"{indent}headers=TECHNITIUM_HEADERS\n"
+                + block[closing:]
+            )
+
+    if block == original_block:
+        raise SystemExit(
+            "A Technitium token request was found but could not be converted."
+        )
+
+    text = text[:start] + block + text[end:]
+
+if "TECHNITIUM_HEADERS =" not in text:
+    config_import = "from config import *"
+
+    if config_import not in text:
+        raise SystemExit(
+            "Could not locate 'from config import *' in Portal main.py."
+        )
+
+    text = text.replace(
+        config_import,
+        config_import
+        + "\n\n"
+        + 'TECHNITIUM_HEADERS = {"Authorization": f"Bearer {TECHNITIUM_TOKEN}"}',
+        1
+    )
+
+try:
+    patched_tree = ast.parse(text)
+except SyntaxError as exc:
+    raise SystemExit(f"Patched Portal main.py is invalid Python: {exc}")
+
+login_checked = False
+
+for node in patched_tree.body:
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        continue
+    if node.name != "login":
+        continue
+
+    segment = ast.get_source_segment(text, node) or ""
+
+    if "/api/user/login" in segment:
+        login_checked = True
+        if "TECHNITIUM_HEADERS" in segment:
+            raise SystemExit(
+                "SECURITY ERROR: /api/user/login was assigned the portal-api "
+                "Bearer header."
+            )
+
+if not login_checked:
+    raise SystemExit(
+        "Could not verify the Portal /login -> Technitium /api/user/login path."
+    )
+
+if text == original:
+    raise SystemExit(
+        "Portal source preparation could not be patched automatically."
+    )
+
+path.write_text(text)
+PY
+
+ok "Portal source prepared for updates"
+
+###############################################################################
 # Create Python virtual environment
 ###############################################################################
 
@@ -797,7 +998,6 @@ if [[ -f "$UPDATE_CHECKER" ]]; then
     else
         FINAL_UPDATE_LEVEL="$(tr -d '[:space:]' < "$UPDATE_STATE_FILE")"
         warn "Portal update check failed - installed level remains $FINAL_UPDATE_LEVEL"
-        warn "Base Portal installation will remain active"
     fi
 else
     FINAL_UPDATE_LEVEL="$(tr -d '[:space:]' < "$UPDATE_STATE_FILE")"
@@ -805,24 +1005,14 @@ else
     warn "Installed update level remains $FINAL_UPDATE_LEVEL"
 fi
 
-###############################################################################
-# Record the deployment architecture
-#
-# The launcher also records this after the installer exits; doing it
-# here as well makes reruns consistent.
-###############################################################################
-
-if sudo -u postgres psql -d "$DB_NAME" >/dev/null 2>&1 <<SQL
-INSERT INTO portal_settings (setting_key, setting_value)
-VALUES ('dns_provider', 'firewall')
-ON CONFLICT (setting_key)
-DO UPDATE SET setting_value = EXCLUDED.setting_value;
-SQL
-then
-    ok "Deployment architecture recorded: firewall"
-else
-    warn "Could not record the deployment architecture in the database"
+# The NetFortress integration requires the provider abstraction
+# (update 006). Never continue into appliance integration with an
+# under-updated portal - the deployment would be half-configured.
+if [[ ! "$FINAL_UPDATE_LEVEL" =~ ^[0-9]+$ ]] || (( FINAL_UPDATE_LEVEL < 6 )); then
+    fail "Portal updates did not complete (level ${FINAL_UPDATE_LEVEL:-unknown}, update 006 required for the NetFortress integration). Check the update output above and re-run this installer."
 fi
+
+ok "Portal is at update level $FINAL_UPDATE_LEVEL (provider abstraction present)"
 
 ###############################################################################
 # NetFortress Firewall Appliance integration
@@ -836,8 +1026,9 @@ echo "The portal drives DNS blocking through the appliance API"
 echo "(domain blocks, approvals and licence limits)."
 echo
 
-read -r -p "Appliance API URL [http://192.168.50.2:8080]: " FIREWALL_API_URL
-FIREWALL_API_URL="${FIREWALL_API_URL:-http://192.168.50.2:8080}"
+# The appliance address is usually assigned by DHCP - there is no
+# safe default, so it must be entered explicitly.
+read -r -p "Appliance API URL (e.g. http://192.168.50.2:8080): " FIREWALL_API_URL
 
 if [[ ! "$FIREWALL_API_URL" =~ ^https?://[A-Za-z0-9.:-]+$ ]]; then
     fail "Invalid appliance API URL: $FIREWALL_API_URL"
@@ -1073,6 +1264,25 @@ if grep -q "^provider=firewall " <<<"$PROVIDER_TEST"; then
     ok "Portal -> Firewall Appliance provider connection works"
 else
     fail "Portal -> Firewall Appliance provider test failed"
+fi
+
+###############################################################################
+# Record the deployment architecture
+#
+# Recorded only now that the integration is verified working. The
+# launcher also records this after the installer exits.
+###############################################################################
+
+if sudo -u postgres psql -d "$DB_NAME" >/dev/null 2>&1 <<SQL
+INSERT INTO portal_settings (setting_key, setting_value)
+VALUES ('dns_provider', 'firewall')
+ON CONFLICT (setting_key)
+DO UPDATE SET setting_value = EXCLUDED.setting_value;
+SQL
+then
+    ok "Deployment architecture recorded: firewall"
+else
+    warn "Could not record the deployment architecture in the database"
 fi
 
 ###############################################################################
