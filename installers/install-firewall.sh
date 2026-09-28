@@ -1030,7 +1030,7 @@ echo
 
 # The appliance address is usually assigned by DHCP - there is no
 # safe default, so it must be entered explicitly.
-read -r -p "Appliance API URL (e.g. http://192.168.50.2:8080): " FIREWALL_API_URL
+read -r -p "Appliance API URL (http://<appliance-ip>:8080): " FIREWALL_API_URL
 
 if [[ ! "$FIREWALL_API_URL" =~ ^https?://[A-Za-z0-9.:-]+$ ]]; then
     fail "Invalid appliance API URL: $FIREWALL_API_URL"
