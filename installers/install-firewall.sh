@@ -1261,10 +1261,23 @@ if [[ -n "$EXISTING_FIREWALL_TOKEN" && "$FIREWALL_API_URL" == "$EXISTING_FIREWAL
     )"
 
     if [[ "$REUSE_STATUS" == "200" ]]; then
-        FIREWALL_API_TOKEN="$EXISTING_FIREWALL_TOKEN"
-        TOKEN_REUSED=1
-        LICENSE_EDITION="unchanged (previous installation)"
-        ok "Existing appliance API token is still valid - reusing it"
+        # The token must also carry the user-sync scopes: portal user
+        # creation mirrors users into the appliance. Tokens minted
+        # before update 007 lack them and must be replaced.
+        USERS_STATUS="$(
+            curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+                -H "Authorization: Bearer $EXISTING_FIREWALL_TOKEN" \
+                "$FIREWALL_API_URL/api/v1/users" 2>/dev/null || true
+        )"
+
+        if [[ "$USERS_STATUS" == "200" ]]; then
+            FIREWALL_API_TOKEN="$EXISTING_FIREWALL_TOKEN"
+            TOKEN_REUSED=1
+            LICENSE_EDITION="unchanged (previous installation)"
+            ok "Existing appliance API token is still valid - reusing it"
+        else
+            warn "The stored appliance token lacks the user-sync scopes - a new full-scope token will be created"
+        fi
     else
         warn "The previously configured appliance token no longer works - a new one will be created"
     fi
