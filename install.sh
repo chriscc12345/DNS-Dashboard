@@ -80,8 +80,8 @@ if [[ -z "$BACKEND" ]]; then
             --title "Portal Deployment" \
             --menu "\nSelect the deployment architecture:" \
             16 78 3 \
-            "1" "Management Portal + Technitium DNS   (recommended)" \
-            "2" "Management Portal + NetFortress Firewall Appliance" \
+            "1" "Management Portal + Technitium DNS" \
+            "2" "Management Portal + NetFortress Firewall Appliance   (recommended)" \
             "3" "NetFortress Firewall Appliance   (standalone)" \
             3>&1 1>&2 2>&3)" || {
                 echo "[INFO] Selection cancelled"
@@ -101,8 +101,8 @@ if [[ -z "$BACKEND" ]]; then
         echo "======================================================"
         echo " Portal Deployment - select the architecture:"
         echo "======================================================"
-        echo "  1) Management Portal + Technitium DNS   (recommended)"
-        echo "  2) Management Portal + NetFortress Firewall Appliance"
+        echo "  1) Management Portal + Technitium DNS"
+        echo "  2) Management Portal + NetFortress Firewall Appliance   (recommended)"
         echo "  3) NetFortress Firewall Appliance   (standalone)"
         echo
         read -r -p "Choice [1-3]: " CHOICE
