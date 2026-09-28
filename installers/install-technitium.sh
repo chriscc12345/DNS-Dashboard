@@ -1416,13 +1416,15 @@ if [[ ! -f "$UPDATE_STATE_FILE" ]]; then
     chmod 644 "$UPDATE_STATE_FILE"
     ok "Portal update level initialized to 0"
 else
+    # Every installer run re-extracts the portal source and restores the
+    # reference database, so a previous update level no longer describes
+    # what is installed. Retaining it would make earlier updates skip and
+    # leave the fresh source without their changes; the update chain must
+    # rebuild from level 0.
     CURRENT_UPDATE_LEVEL="$(tr -d '[:space:]' < "$UPDATE_STATE_FILE")"
-
-    if [[ "$CURRENT_UPDATE_LEVEL" =~ ^[0-9]+$ ]]; then
-        ok "Existing Portal update level retained: $CURRENT_UPDATE_LEVEL"
-    else
-        fail "Invalid Portal update state: $UPDATE_STATE_FILE"
-    fi
+    printf '%s\n' "0" > "$UPDATE_STATE_FILE"
+    chmod 644 "$UPDATE_STATE_FILE"
+    ok "Portal update level reset to 0 (source and database were re-installed; was: ${CURRENT_UPDATE_LEVEL:-unknown})"
 fi
 
 ###############################################################################
