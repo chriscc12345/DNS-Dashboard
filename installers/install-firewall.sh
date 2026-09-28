@@ -377,6 +377,57 @@ fi
 
 mkdir -p "$PORTAL_ROOT"
 
+# Preserve the existing appliance configuration before replacing the
+# Portal source: on a rerun this lets the installer reuse the
+# previously configured appliance address and API token without
+# asking again.
+EXISTING_FIREWALL_URL=""
+EXISTING_FIREWALL_TOKEN=""
+
+if [[ -f "$PORTAL_API/config.py" ]]; then
+    EXISTING_FIREWALL_URL="$(python3 - "$PORTAL_API/config.py" <<'PYKEEP'
+import sys
+import ast
+from pathlib import Path
+
+tree = ast.parse(Path(sys.argv[1]).read_text())
+for node in tree.body:
+    if not isinstance(node, ast.Assign):
+        continue
+    for target in node.targets:
+        if isinstance(target, ast.Name) and target.id == "FIREWALL_API_URL":
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                value = node.value.value.strip()
+                if value and "127.0.0.1" not in value:
+                    print(value)
+            raise SystemExit(0)
+PYKEEP
+    )"
+
+    EXISTING_FIREWALL_TOKEN="$(python3 - "$PORTAL_API/config.py" <<'PYKEEPTOK'
+import sys
+import ast
+from pathlib import Path
+
+tree = ast.parse(Path(sys.argv[1]).read_text())
+for node in tree.body:
+    if not isinstance(node, ast.Assign):
+        continue
+    for target in node.targets:
+        if isinstance(target, ast.Name) and target.id == "FIREWALL_API_TOKEN":
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                value = node.value.value.strip()
+                if value:
+                    print(value)
+            raise SystemExit(0)
+PYKEEPTOK
+    )"
+fi
+
+if [[ -n "$EXISTING_FIREWALL_URL" ]]; then
+    ok "Previously configured appliance address preserved: $EXISTING_FIREWALL_URL"
+fi
+
 rm -rf "$PORTAL_API" "$PORTAL_WEB"
 
 tar -xzf "$PORTAL_ARCHIVE" -C /opt
@@ -1097,22 +1148,33 @@ if [[ -n "$DISCOVERED_URLS" ]]; then
     DEFAULT_URL="$(head -n1 <<<"$DISCOVERED_URLS")"
 else
     warn "No NetFortress appliance discovered on the local /24 network(s)"
-    warn "The appliance address must be entered manually"
 fi
 
-log "CONFIGURING NETFORTRESS FIREWALL APPLIANCE"
+# Fall back to the appliance address configured by an earlier run.
+if [[ -z "$DEFAULT_URL" && -n "$EXISTING_FIREWALL_URL" ]]; then
+    ok "Using the previously configured appliance address as the default"
+    DEFAULT_URL="$EXISTING_FIREWALL_URL"
+fi
 
-echo
-echo "Enter the NetFortress Firewall Appliance details."
-echo "The portal drives DNS blocking through the appliance API"
-echo "(domain blocks, approvals and licence limits)."
-echo
-
-if [[ -n "$DEFAULT_URL" ]]; then
-    read -r -p "Appliance API URL [$DEFAULT_URL]: " FIREWALL_API_URL
-    FIREWALL_API_URL="${FIREWALL_API_URL:-$DEFAULT_URL}"
+if [[ -n "${PORTAL_FIREWALL_API_URL:-}" ]]; then
+    # Unattended installs may pass the address explicitly.
+    FIREWALL_API_URL="$PORTAL_FIREWALL_API_URL"
+    ok "Appliance API URL provided via PORTAL_FIREWALL_API_URL"
 else
-    read -r -p "Appliance API URL (http://<appliance-ip>:8080): " FIREWALL_API_URL
+    log "CONFIGURING NETFORTRESS FIREWALL APPLIANCE"
+
+    echo
+    echo "Enter the NetFortress Firewall Appliance details."
+    echo "The portal drives DNS blocking through the appliance API"
+    echo "(domain blocks, approvals and licence limits)."
+    echo
+
+    if [[ -n "$DEFAULT_URL" ]]; then
+        read -r -p "Appliance API URL [$DEFAULT_URL]: " FIREWALL_API_URL
+        FIREWALL_API_URL="${FIREWALL_API_URL:-$DEFAULT_URL}"
+    else
+        read -r -p "Appliance API URL (http://<appliance-ip>:8080): " FIREWALL_API_URL
+    fi
 fi
 
 if [[ ! "$FIREWALL_API_URL" =~ ^https?://[A-Za-z0-9.:-]+$ ]]; then
@@ -1132,13 +1194,6 @@ if [[ -n "$DISCOVERED_URLS" ]] \
     warn "Using a manually entered address (not one of the discovered appliances)"
 fi
 
-read -r -p "Appliance administrator username: " FIREWALL_ADMIN_USER
-[[ -n "$FIREWALL_ADMIN_USER" ]] || fail "Administrator username is required."
-
-read -r -s -p "Appliance administrator password: " FIREWALL_ADMIN_PASSWORD
-echo
-[[ -n "$FIREWALL_ADMIN_PASSWORD" ]] || fail "Administrator password is required."
-
 # -- Appliance reachability ----------------------------------------------
 
 if ! curl -fsS --max-time 10 \
@@ -1147,6 +1202,44 @@ if ! curl -fsS --max-time 10 \
 fi
 
 ok "Appliance API is reachable"
+
+# -- Existing appliance token reuse ---------------------------------------
+#
+# On a rerun, the appliance token configured by the previous install
+# may still be valid. If so it is reused and the administrator
+# credentials are not asked for at all.
+
+FIREWALL_API_TOKEN=""
+TOKEN_REUSED=0
+LICENSE_EDITION=""
+
+if [[ -n "$EXISTING_FIREWALL_TOKEN" && "$FIREWALL_API_URL" == "$EXISTING_FIREWALL_URL" ]]; then
+    REUSE_STATUS="$(
+        curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+            -H "Authorization: Bearer $EXISTING_FIREWALL_TOKEN" \
+            "$FIREWALL_API_URL/api/v1/dns/status" 2>/dev/null || true
+    )"
+
+    if [[ "$REUSE_STATUS" == "200" ]]; then
+        FIREWALL_API_TOKEN="$EXISTING_FIREWALL_TOKEN"
+        TOKEN_REUSED=1
+        LICENSE_EDITION="unchanged (previous installation)"
+        ok "Existing appliance API token is still valid - reusing it"
+    else
+        warn "The previously configured appliance token no longer works - a new one will be created"
+    fi
+fi
+
+if [[ "$TOKEN_REUSED" -eq 1 ]]; then
+    ok "Appliance API token ready (reused from the previous installation)"
+else
+
+read -r -p "Appliance administrator username: " FIREWALL_ADMIN_USER
+[[ -n "$FIREWALL_ADMIN_USER" ]] || fail "Administrator username is required."
+
+read -r -s -p "Appliance administrator password: " FIREWALL_ADMIN_PASSWORD
+echo
+[[ -n "$FIREWALL_ADMIN_PASSWORD" ]] || fail "Administrator password is required."
 
 # -- Administrator login --------------------------------------------------
 
@@ -1248,6 +1341,8 @@ TOKEN_TEST_STATUS="$(
     || fail "The appliance API token did not validate (HTTP $TOKEN_TEST_STATUS)"
 
 ok "Appliance API token validated"
+
+fi
 
 # -- Configure the portal ---------------------------------------------------
 
