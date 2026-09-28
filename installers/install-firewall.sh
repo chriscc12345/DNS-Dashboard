@@ -1121,6 +1121,12 @@ fi
 
 FIREWALL_API_URL="${FIREWALL_API_URL%/}"
 
+# The appliance API listens on its fixed port: if the address was
+# entered without one, use the appliance API port.
+if [[ ! "$FIREWALL_API_URL" =~ :[0-9]+$ ]]; then
+    FIREWALL_API_URL="${FIREWALL_API_URL}:8080"
+fi
+
 if [[ -n "$DISCOVERED_URLS" ]] \
    && ! grep -qx "$FIREWALL_API_URL" <<<"$DISCOVERED_URLS"; then
     warn "Using a manually entered address (not one of the discovered appliances)"
