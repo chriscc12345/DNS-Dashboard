@@ -883,13 +883,16 @@ SESSION_HEADER="Authorization: Bearer $FIREWALL_ADMIN_SESSION"
 
 # -- Licence precheck ------------------------------------------------------
 #
-# The provider needs three appliance licence features:
+# The provider needs the DNS features that ship with every edition
+# from Home Lite upward:
 #   dns             - DNS management (status, transactions)
 #   dns_filtering   - domain block entries
-#   api_automation  - API token creation
 #
-# A lesser edition aborts the install here with a clear message
-# instead of failing later during portal use.
+# Token creation is authenticated by the appliance administrator
+# session and is not licence-feature gated, so the integration works
+# starting from the free Home Lite edition. A lesser (unlicensed /
+# expired) appliance aborts here with a clear message instead of
+# failing later during portal use.
 
 LICENSE_RESPONSE="$(
     curl -sS --max-time 15 \
@@ -903,7 +906,7 @@ LICENSE_EDITION="$(
 
 MISSING_FEATURES=""
 
-for feature in dns dns_filtering api_automation; do
+for feature in dns dns_filtering; do
     if ! jq -e --arg f "$feature" \
         '(.features // []) | index($f) != null' \
         <<<"$LICENSE_RESPONSE" >/dev/null 2>&1; then
@@ -916,6 +919,14 @@ if [[ -n "$MISSING_FEATURES" ]]; then
 fi
 
 ok "Appliance licence verified (edition: $LICENSE_EDITION)"
+
+LICENSE_ACCOUNT_LIMIT="$(
+    jq -r '.account_limit // 0' <<<"$LICENSE_RESPONSE" 2>/dev/null || true
+)"
+
+if [[ "$LICENSE_ACCOUNT_LIMIT" =~ ^[0-9]+$ ]] && (( LICENSE_ACCOUNT_LIMIT > 0 )); then
+    warn "The $LICENSE_EDITION licence allows $LICENSE_ACCOUNT_LIMIT portal user account(s); portal user creation will respect this limit"
+fi
 
 # -- Mint the portal API token ----------------------------------------------
 
@@ -932,7 +943,7 @@ FIREWALL_API_TOKEN="$(
 )"
 
 [[ -n "$FIREWALL_API_TOKEN" ]] \
-    || fail "Could not create the appliance API token (feature api_automation is required on the appliance licence)"
+    || fail "Could not create the appliance API token (check the appliance licence and administrator privileges)"
 
 ok "Appliance API token created (scopes: dns:read, dns:write)"
 
