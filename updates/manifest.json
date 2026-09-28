@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "latest_update": 6,
+  "latest_update": 7,
   "updates": [
     {
       "version": 1,
@@ -37,6 +37,12 @@
       "name": "Network Services Provider Abstraction and Firewall Appliance Support",
       "filename": "update-006.sh",
       "sha256": "db5ad54e227147b98230e06e6ccfd63dadca5adc2bd7228901d44c867150bd84"
+    },
+    {
+      "version": 7,
+      "name": "Unified Initial Administrator Setup",
+      "filename": "update-007.sh",
+      "sha256": "edefc20ba6ac0edccf0070d60cae200a011d682ee40a39eee1b16e77512fa9ad"
     }
   ]
 }

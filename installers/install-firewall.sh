@@ -1290,21 +1290,35 @@ BOOTSTRAP_REQUIRED="$(
     jq -r '.bootstrap_required // false' <<<"$AUTH_RESPONSE" 2>/dev/null || true
 )"
 
-FIREWALL_ADMIN_USER="$(ask_input "NetFortress Appliance" "Appliance administrator username (opens the appliance console):" "")"
-[[ -n "$FIREWALL_ADMIN_USER" ]] || fail "Administrator username is required."
-
-FIREWALL_ADMIN_PASSWORD="$(ask_password "NetFortress Appliance" "Appliance administrator password:" "")"
-[[ -n "$FIREWALL_ADMIN_PASSWORD" ]] || fail "Administrator password is required."
-
 if [[ "$BOOTSTRAP_REQUIRED" == "true" ]]; then
+    # Silent bootstrap: the real administrator account is created on
+    # the Portal setup page after the install - one account for both
+    # the Portal and the appliance. The temporary account below exists
+    # only so this installer can authenticate and mint the portal API
+    # token; the setup page replaces it.
+    FIREWALL_ADMIN_USER="portal-setup"
+    FIREWALL_ADMIN_PASSWORD="$(openssl rand -hex 24)"
+
     ADMIN_RESPONSE="$(
         curl -sS --max-time 15 \
             -H "Content-Type: application/json" \
             -d "{\"username\":\"$FIREWALL_ADMIN_USER\",\"password\":\"$FIREWALL_ADMIN_PASSWORD\"}" \
             "$FIREWALL_API_URL/api/v1/auth/bootstrap" 2>/dev/null || true
     )"
-    ok "Appliance administrator account created"
+
+    install -d -m 0755 /var/lib/portal
+    printf '%s:%s\n' "$FIREWALL_ADMIN_USER" "$FIREWALL_ADMIN_PASSWORD" \
+        > /var/lib/portal/appliance-setup-credentials
+    chmod 600 /var/lib/portal/appliance-setup-credentials
+
+    ok "Temporary appliance setup account created (replaced by the Portal setup page)"
 else
+    FIREWALL_ADMIN_USER="$(ask_input "NetFortress Appliance" "Appliance administrator username:" "")"
+    [[ -n "$FIREWALL_ADMIN_USER" ]] || fail "Administrator username is required."
+
+    FIREWALL_ADMIN_PASSWORD="$(ask_password "NetFortress Appliance" "Appliance administrator password:" "")"
+    [[ -n "$FIREWALL_ADMIN_PASSWORD" ]] || fail "Administrator password is required."
+
     ADMIN_RESPONSE="$(
         curl -sS --max-time 15 \
             -H "Content-Type: application/json" \
@@ -1577,7 +1591,7 @@ HOST_IP="${HOST_IP:-Unknown}"
 
 echo
 echo "Portal:"
-echo "  HTTPS: https://$PORTAL_HOSTNAME"
+echo "  HTTPS: https://$PORTAL_HOSTNAME/login.php"
 echo "  Host IP: $HOST_IP"
 echo "  FastAPI: http://127.0.0.1:8000"
 echo
@@ -1588,6 +1602,7 @@ echo "  PHP-FPM:    php8.4-fpm"
 echo "  Portal API: $API_SERVICE"
 echo
 echo "NetFortress Firewall Appliance (on this server):"
+echo "  Administrator: set on https://$PORTAL_HOSTNAME/setup.php (one account for the Portal and the appliance)"
 echo "  Web console:   http://$HOST_IP:8080"
 echo "  Captive portal: http://$HOST_IP:8420"
 echo "  Edition:       $LICENSE_EDITION"
