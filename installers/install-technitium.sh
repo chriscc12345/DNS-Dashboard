@@ -114,11 +114,48 @@ cleanup() {
 trap cleanup EXIT
 
 ###############################################################################
+# Graphical prompts
+#
+# whiptail dialog boxes on the real terminal when available; plain
+# prompts otherwise (piped / unattended installs). The install log
+# captures all installer output, so the dialogs use /dev/tty
+# directly: the interface renders on the terminal and only the
+# entered value is returned to the installer.
+###############################################################################
+
+ask_input() {
+    local title="$1" prompt="$2" default="${3:-}" answer="" result_file
+
+    result_file="$(mktemp /tmp/portal-prompt.XXXXXX)"
+
+    if [[ -r /dev/tty && -w /dev/tty ]] && command -v whiptail >/dev/null 2>&1; then
+        if whiptail --title "$title" --inputbox "$prompt" 12 70 "$default" \
+            < /dev/tty > /dev/tty 2> "$result_file"; then
+            answer="$(cat "$result_file")"
+        else
+            rm -f "$result_file"
+            echo
+            echo "[INFO] Input cancelled - installation aborted"
+            exit 1
+        fi
+    else
+        if [[ -n "$default" ]]; then
+            read -r -p "$prompt [$default]: " answer || exit 1
+            answer="${answer:-$default}"
+        else
+            read -r -p "$prompt: " answer || exit 1
+        fi
+    fi
+
+    rm -f "$result_file"
+    printf '%s' "$answer"
+}
+
+###############################################################################
 # Portal hostname
 ###############################################################################
 
-read -r -p "Portal hostname [$DEFAULT_PORTAL_HOSTNAME]: " PORTAL_HOSTNAME
-PORTAL_HOSTNAME="${PORTAL_HOSTNAME:-$DEFAULT_PORTAL_HOSTNAME}"
+PORTAL_HOSTNAME="$(ask_input "Portal Deployment" "Portal hostname (the name users type in the browser):" "$DEFAULT_PORTAL_HOSTNAME")"
 
 # Hostname only - no protocol, port, path, spaces, or shell metacharacters.
 if [[ ! "$PORTAL_HOSTNAME" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]]; then

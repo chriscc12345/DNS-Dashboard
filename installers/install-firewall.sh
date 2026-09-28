@@ -115,11 +115,72 @@ cleanup() {
 trap cleanup EXIT
 
 ###############################################################################
+# Graphical prompts
+#
+# whiptail dialog boxes on the real terminal when available; plain
+# prompts otherwise (piped / unattended installs). The install log
+# captures all installer output, so the dialogs use /dev/tty
+# directly: the interface renders on the terminal and only the
+# entered value is returned to the installer.
+###############################################################################
+
+ask_input() {
+    local title="$1" prompt="$2" default="${3:-}" answer="" result_file
+
+    result_file="$(mktemp /tmp/portal-prompt.XXXXXX)"
+
+    if [[ -r /dev/tty && -w /dev/tty ]] && command -v whiptail >/dev/null 2>&1; then
+        if whiptail --title "$title" --inputbox "$prompt" 12 70 "$default" \
+            < /dev/tty > /dev/tty 2> "$result_file"; then
+            answer="$(cat "$result_file")"
+        else
+            rm -f "$result_file"
+            echo
+            echo "[INFO] Input cancelled - installation aborted"
+            exit 1
+        fi
+    else
+        if [[ -n "$default" ]]; then
+            read -r -p "$prompt [$default]: " answer || exit 1
+            answer="${answer:-$default}"
+        else
+            read -r -p "$prompt: " answer || exit 1
+        fi
+    fi
+
+    rm -f "$result_file"
+    printf '%s' "$answer"
+}
+
+ask_password() {
+    local title="$1" prompt="$2" answer="" result_file
+
+    result_file="$(mktemp /tmp/portal-prompt.XXXXXX)"
+
+    if [[ -r /dev/tty && -w /dev/tty ]] && command -v whiptail >/dev/null 2>&1; then
+        if whiptail --title "$title" --passwordbox "$prompt" 12 70 \
+            < /dev/tty > /dev/tty 2> "$result_file"; then
+            answer="$(cat "$result_file")"
+        else
+            rm -f "$result_file"
+            echo
+            echo "[INFO] Input cancelled - installation aborted"
+            exit 1
+        fi
+    else
+        read -r -s -p "$prompt: " answer || exit 1
+        echo
+    fi
+
+    rm -f "$result_file"
+    printf '%s' "$answer"
+}
+
+###############################################################################
 # Portal hostname
 ###############################################################################
 
-read -r -p "Portal hostname [$DEFAULT_PORTAL_HOSTNAME]: " PORTAL_HOSTNAME
-PORTAL_HOSTNAME="${PORTAL_HOSTNAME:-$DEFAULT_PORTAL_HOSTNAME}"
+PORTAL_HOSTNAME="$(ask_input "Portal Deployment" "Portal hostname (the name users type in the browser):" "$DEFAULT_PORTAL_HOSTNAME")"
 
 # Hostname only - no protocol, port, path, spaces, or shell metacharacters.
 if [[ ! "$PORTAL_HOSTNAME" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]]; then
@@ -1170,10 +1231,9 @@ else
     echo
 
     if [[ -n "$DEFAULT_URL" ]]; then
-        read -r -p "Appliance API URL [$DEFAULT_URL]: " FIREWALL_API_URL
-        FIREWALL_API_URL="${FIREWALL_API_URL:-$DEFAULT_URL}"
+        FIREWALL_API_URL="$(ask_input "NetFortress Firewall Appliance" "Appliance API URL (Enter accepts the address shown in the box):" "$DEFAULT_URL")"
     else
-        read -r -p "Appliance API URL (http://<appliance-ip>:8080): " FIREWALL_API_URL
+        FIREWALL_API_URL="$(ask_input "NetFortress Firewall Appliance" "Appliance API URL (http://<appliance-ip>:8080):" "")"
     fi
 fi
 
@@ -1234,11 +1294,10 @@ if [[ "$TOKEN_REUSED" -eq 1 ]]; then
     ok "Appliance API token ready (reused from the previous installation)"
 else
 
-read -r -p "Appliance administrator username: " FIREWALL_ADMIN_USER
+FIREWALL_ADMIN_USER="$(ask_input "NetFortress Firewall Appliance" "Appliance administrator username (used once to create the portal API token):" "")"
 [[ -n "$FIREWALL_ADMIN_USER" ]] || fail "Administrator username is required."
 
-read -r -s -p "Appliance administrator password: " FIREWALL_ADMIN_PASSWORD
-echo
+FIREWALL_ADMIN_PASSWORD="$(ask_password "NetFortress Firewall Appliance" "Appliance administrator password:" "")"
 [[ -n "$FIREWALL_ADMIN_PASSWORD" ]] || fail "Administrator password is required."
 
 # -- Administrator login --------------------------------------------------
