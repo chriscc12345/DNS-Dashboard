@@ -1020,6 +1020,86 @@ ok "Portal is at update level $FINAL_UPDATE_LEVEL (provider abstraction present)
 # NetFortress Firewall Appliance integration
 ###############################################################################
 
+log "DISCOVERING NETFORTRESS FIREWALL APPLIANCE"
+
+echo
+echo "The appliance address is usually assigned by DHCP, so the"
+echo "installer probes the local /24 network(s) for the NetFortress"
+echo "API. Its health endpoint is public and answers with a"
+echo "distinctive NetFortress signature - no credentials needed."
+echo
+
+# Probe every host of each local /24 subnet on the appliance API
+# port. Unauthenticated GET /api/v1/health; only responses containing
+# the NetFortress signature are accepted.
+discover_appliances() {
+
+    local tmpdir
+    tmpdir="$(mktemp -d /tmp/appliance-scan.XXXXXX)"
+
+    local addr base host batch=0
+
+    while read -r addr; do
+        [[ "$addr" =~ ^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\.[0-9]{1,3}/24$ ]] || continue
+        base="${BASH_REMATCH[1]}"
+
+        for host in $(seq 1 254); do
+            (
+                curl -fsS --max-time 1 --connect-timeout 1 \
+                    "http://${base}.${host}:8080/api/v1/health" \
+                    -o "$tmpdir/${base}.${host}" 2>/dev/null
+            ) &
+            batch=$((batch + 1))
+            if (( batch % 64 == 0 )); then
+                wait
+            fi
+        done
+    done < <(ip -4 -o addr show scope global | awk '{print $4}' | sort -u)
+
+    # Individual candidates: the appliance is typically the network's
+    # DNS server (handed out by DHCP) and may sit behind the default
+    # gateway on a routed segment - probe both.
+    while read -r candidate; do
+        [[ "$candidate" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || continue
+        (
+            curl -fsS --max-time 1 --connect-timeout 1 \
+                "http://${candidate}:8080/api/v1/health" \
+                -o "$tmpdir/${candidate}" 2>/dev/null
+        ) &
+    done < <(
+        {
+            grep -E '^nameserver[[:space:]]' /etc/resolv.conf \
+                | awk '{print $2}' || true
+            ip route show default | awk '{print $3}' || true
+        } | sort -u
+    )
+
+    wait
+
+    local result
+    for result in "$tmpdir"/*; do
+        [[ -s "$result" ]] || continue
+        if grep -q '"firewall_backend"' "$result" 2>/dev/null; then
+            echo "http://$(basename "$result"):8080"
+        fi
+    done | sort -u
+
+    rm -rf "$tmpdir"
+}
+
+DISCOVERED_URLS="$(discover_appliances)"
+
+DEFAULT_URL=""
+
+if [[ -n "$DISCOVERED_URLS" ]]; then
+    ok "NetFortress appliance(s) discovered on the local network:"
+    sed 's/^/         /' <<<"$DISCOVERED_URLS"
+    DEFAULT_URL="$(head -n1 <<<"$DISCOVERED_URLS")"
+else
+    warn "No NetFortress appliance discovered on the local /24 network(s)"
+    warn "The appliance address must be entered manually"
+fi
+
 log "CONFIGURING NETFORTRESS FIREWALL APPLIANCE"
 
 echo
@@ -1028,15 +1108,23 @@ echo "The portal drives DNS blocking through the appliance API"
 echo "(domain blocks, approvals and licence limits)."
 echo
 
-# The appliance address is usually assigned by DHCP - there is no
-# safe default, so it must be entered explicitly.
-read -r -p "Appliance API URL (http://<appliance-ip>:8080): " FIREWALL_API_URL
+if [[ -n "$DEFAULT_URL" ]]; then
+    read -r -p "Appliance API URL [$DEFAULT_URL]: " FIREWALL_API_URL
+    FIREWALL_API_URL="${FIREWALL_API_URL:-$DEFAULT_URL}"
+else
+    read -r -p "Appliance API URL (http://<appliance-ip>:8080): " FIREWALL_API_URL
+fi
 
 if [[ ! "$FIREWALL_API_URL" =~ ^https?://[A-Za-z0-9.:-]+$ ]]; then
     fail "Invalid appliance API URL: $FIREWALL_API_URL"
 fi
 
 FIREWALL_API_URL="${FIREWALL_API_URL%/}"
+
+if [[ -n "$DISCOVERED_URLS" ]] \
+   && ! grep -qx "$FIREWALL_API_URL" <<<"$DISCOVERED_URLS"; then
+    warn "Using a manually entered address (not one of the discovered appliances)"
+fi
 
 read -r -p "Appliance administrator username: " FIREWALL_ADMIN_USER
 [[ -n "$FIREWALL_ADMIN_USER" ]] || fail "Administrator username is required."
