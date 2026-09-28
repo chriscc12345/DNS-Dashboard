@@ -1446,6 +1446,27 @@ unset FIREWALL_ADMIN_PASSWORD
 unset FIREWALL_ADMIN_SESSION
 
 ###############################################################################
+# Record the deployment architecture
+#
+# Set BEFORE restarting: the provider registry reads this key at
+# runtime, so the provider test itself must find the firewall
+# provider active. The launcher also records this after the
+# installer exits.
+###############################################################################
+
+if sudo -u postgres psql -d "$DB_NAME" >/dev/null 2>&1 <<SQL
+INSERT INTO portal_settings (setting_key, setting_value)
+VALUES ('dns_provider', 'firewall')
+ON CONFLICT (setting_key)
+DO UPDATE SET setting_value = EXCLUDED.setting_value;
+SQL
+then
+    ok "Deployment architecture recorded: firewall"
+else
+    warn "Could not record the deployment architecture in the database"
+fi
+
+###############################################################################
 # Restart the portal with the appliance configuration
 ###############################################################################
 
@@ -1518,25 +1539,6 @@ if grep -q "^provider=firewall " <<<"$PROVIDER_TEST"; then
     ok "Portal -> Firewall Appliance provider connection works"
 else
     fail "Portal -> Firewall Appliance provider test failed"
-fi
-
-###############################################################################
-# Record the deployment architecture
-#
-# Recorded only now that the integration is verified working. The
-# launcher also records this after the installer exits.
-###############################################################################
-
-if sudo -u postgres psql -d "$DB_NAME" >/dev/null 2>&1 <<SQL
-INSERT INTO portal_settings (setting_key, setting_value)
-VALUES ('dns_provider', 'firewall')
-ON CONFLICT (setting_key)
-DO UPDATE SET setting_value = EXCLUDED.setting_value;
-SQL
-then
-    ok "Deployment architecture recorded: firewall"
-else
-    warn "Could not record the deployment architecture in the database"
 fi
 
 ###############################################################################
