@@ -6,25 +6,30 @@ set -Eeuo pipefail
 # Portal Server - Debian 13 Installer (NetFortress Firewall Appliance)
 #
 # Deployment option 2: Management Portal + NetFortress Firewall
-# Appliance. Nothing else.
+# Appliance, both on this server. Nothing else.
 #
 # Installs on this server:
 #   - PostgreSQL
-#   - NGINX
+#   - NGINX (portal vhost on 80/443, appliance block page on 80,
+#     captive portal on 8420)
 #   - PHP 8.4 FPM
 #   - Python / FastAPI portal
+#   - NetFortress Firewall Appliance (API on 127.0.0.1:8080)
 #
-# No DNS server is installed on this server: DNS/network services
-# are provided by the NetFortress Firewall Appliance over its API.
+# The portal drives DNS blocking through the local appliance API
+# (provider abstraction, dns_provider=firewall). The appliance
+# starts the 60-day full trial automatically and DNS blocking
+# enforces immediately. Firewall rule enforcement stays in the
+# appliance's guarded candidate-only mode until the administrator
+# deploys policy from the appliance console.
 #
 # The installer:
-#   - Prompts for the appliance API URL and administrator credentials
-#   - Verifies the appliance licence includes the required features
+#   - Installs the appliance from the bundled appliance source
+#   - Creates the appliance administrator account (first install)
 #   - Mints a scoped appliance API token (dns:read + dns:write)
 #   - Configures the portal to drive the appliance through the
-#     provider abstraction (dns_provider=firewall)
+#     provider abstraction
 #
-# No firewall configuration.
 # No Fail2Ban.
 ###############################################################################
 
@@ -35,6 +40,12 @@ PORTAL_ARCHIVE="$SCRIPT_DIR/portal/portal-source.tar.gz"
 REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
 NGINX_CONFIG="$SCRIPT_DIR/nginx/default"
 PORTAL_SERVICE="$SCRIPT_DIR/systemd/portal-api.service"
+
+APPLIANCE_ARCHIVE="$SCRIPT_DIR/appliance/netfortress-appliance.tar.gz"
+APPLIANCE_SRC_ROOT="/opt/firewall-appliance-src"
+APPLIANCE_SOURCE_DIR="$APPLIANCE_SRC_ROOT/firewall-appliance"
+APPLIANCE_INSTALLER="$APPLIANCE_SOURCE_DIR/deploy/install.sh"
+APPLIANCE_ENV="/etc/firewall-appliance/environment"
 
 LOG_FILE="/var/log/portal-server-installer.log"
 
@@ -230,12 +241,14 @@ log "INSTALLER PACKAGE CHECK"
 [[ -f "$REQUIREMENTS" ]] || fail "requirements.txt not found: $REQUIREMENTS"
 [[ -f "$NGINX_CONFIG" ]] || fail "NGINX config not found: $NGINX_CONFIG"
 [[ -f "$PORTAL_SERVICE" ]] || fail "Portal systemd service not found: $PORTAL_SERVICE"
+[[ -f "$APPLIANCE_ARCHIVE" ]] || fail "NetFortress appliance archive not found: $APPLIANCE_ARCHIVE"
 
 ok "Database dump found"
 ok "Portal source archive found"
 ok "Python requirements found"
 ok "NGINX configuration found"
 ok "Portal systemd service found"
+ok "NetFortress appliance archive found"
 
 ###############################################################################
 # Fix /opt traversal permissions
@@ -459,7 +472,7 @@ for node in tree.body:
         if isinstance(target, ast.Name) and target.id == "FIREWALL_API_URL":
             if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                 value = node.value.value.strip()
-                if value and "127.0.0.1" not in value:
+                if value:
                     print(value)
             raise SystemExit(0)
 PYKEEP
@@ -898,15 +911,19 @@ log "CONFIGURING NGINX"
 mkdir -p /etc/nginx/sites-available
 mkdir -p /etc/nginx/sites-enabled
 
-cp "$NGINX_CONFIG" /etc/nginx/sites-available/default
+# The portal site is named "portal" (not "default"): on this
+# combined deployment the NetFortress reconciler manages port 80's
+# default server (the DNS block page) and removes any site named
+# "default" - the portal vhost must survive that.
+cp "$NGINX_CONFIG" /etc/nginx/sites-available/portal
 
 sed -i \
     "s/__PORTAL_HOSTNAME__/$PORTAL_HOSTNAME/g" \
-    /etc/nginx/sites-available/default
+    /etc/nginx/sites-available/portal
 
 ln -sfn \
-    /etc/nginx/sites-available/default \
-    /etc/nginx/sites-enabled/default
+    /etc/nginx/sites-available/portal \
+    /etc/nginx/sites-enabled/portal
 
 nginx -t
 
@@ -918,6 +935,80 @@ if ! systemctl is-active --quiet nginx; then
 fi
 
 ok "NGINX is running"
+
+###############################################################################
+# Install the NetFortress Firewall Appliance
+###############################################################################
+
+log "INSTALLING NETFORTRESS FIREWALL APPLIANCE"
+
+rm -rf "$APPLIANCE_SRC_ROOT"
+mkdir -p "$APPLIANCE_SRC_ROOT"
+
+tar -xzf "$APPLIANCE_ARCHIVE" -C "$APPLIANCE_SRC_ROOT"
+
+[[ -f "$APPLIANCE_INSTALLER" ]] \
+    || fail "NetFortress appliance installer was not extracted correctly"
+
+bash "$APPLIANCE_INSTALLER"
+
+ok "NetFortress Firewall Appliance installed"
+
+###############################################################################
+# Enable appliance DNS enforcement
+###############################################################################
+
+log "CONFIGURING APPLIANCE DNS ENFORCEMENT"
+
+# DNS blocking must enforce immediately for the portal workflows
+# (FIREWALL_ENABLE_DNS_APPLY) and the reconciler must render the
+# block page and dnsmasq state (FIREWALL_ENABLE_POLICY_REFRESH).
+# Firewall rule enforcement stays in the appliance's guarded
+# candidate-only mode (FIREWALL_ENABLE_LIVE_APPLY stays disabled)
+# until the administrator deploys policy from the appliance console.
+
+python3 - "$APPLIANCE_ENV" <<'PYAPPLIANCEENV' || fail "appliance environment patch failed"
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+
+for key in ("FIREWALL_ENABLE_DNS_APPLY", "FIREWALL_ENABLE_POLICY_REFRESH"):
+    line = key + "=1"
+    commented = "#" + line
+    if commented in text:
+        text = text.replace(commented, line, 1)
+    elif key + "=" not in text:
+        if not text.endswith(chr(10)):
+            text += chr(10)
+        text += line + chr(10)
+
+path.write_text(text)
+print("[ OK ] DNS apply and policy refresh enabled")
+PYAPPLIANCEENV
+
+systemctl restart firewall-api
+
+APPLIANCE_READY=0
+
+for i in {1..45}; do
+    if curl -fsS --max-time 2 \
+        http://127.0.0.1:8080/api/v1/health \
+        >/dev/null 2>&1; then
+        APPLIANCE_READY=1
+        break
+    fi
+    sleep 2
+done
+
+if [[ "$APPLIANCE_READY" -ne 1 ]]; then
+    systemctl status firewall-api --no-pager || true
+    journalctl -u firewall-api -n 50 --no-pager || true
+    fail "NetFortress appliance API did not become ready."
+fi
+
+ok "NetFortress appliance API is responding"
 
 ###############################################################################
 # Start Portal API
@@ -1002,6 +1093,7 @@ check_service() {
 check_service postgresql "PostgreSQL"
 check_service nginx "NGINX"
 check_service php8.4-fpm "PHP-FPM"
+check_service firewall-api "NetFortress appliance API"
 check_service "$API_SERVICE" "Portal FastAPI"
 
 ###############################################################################
@@ -1131,128 +1223,16 @@ ok "Portal is at update level $FINAL_UPDATE_LEVEL (provider abstraction present)
 ###############################################################################
 # NetFortress Firewall Appliance integration
 ###############################################################################
+# NetFortress Firewall Appliance integration (local appliance)
+###############################################################################
 
-log "DISCOVERING NETFORTRESS FIREWALL APPLIANCE"
+log "CONFIGURING NETFORTRESS APPLIANCE INTEGRATION"
 
-echo
-echo "The appliance address is usually assigned by DHCP, so the"
-echo "installer probes the local /24 network(s) for the NetFortress"
-echo "API. Its health endpoint is public and answers with a"
-echo "distinctive NetFortress signature - no credentials needed."
-echo
+# The appliance runs on this server: the portal talks to it on
+# localhost. No appliance address is ever asked for.
+FIREWALL_API_URL="http://127.0.0.1:8080"
 
-# Probe every host of each local /24 subnet on the appliance API
-# port. Unauthenticated GET /api/v1/health; only responses containing
-# the NetFortress signature are accepted.
-discover_appliances() {
-
-    local tmpdir
-    tmpdir="$(mktemp -d /tmp/appliance-scan.XXXXXX)"
-
-    local addr base host batch=0
-
-    while read -r addr; do
-        [[ "$addr" =~ ^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\.[0-9]{1,3}/24$ ]] || continue
-        base="${BASH_REMATCH[1]}"
-
-        for host in $(seq 1 254); do
-            (
-                curl -fsS --max-time 1 --connect-timeout 1 \
-                    "http://${base}.${host}:8080/api/v1/health" \
-                    -o "$tmpdir/${base}.${host}" 2>/dev/null
-            ) &
-            batch=$((batch + 1))
-            if (( batch % 64 == 0 )); then
-                wait
-            fi
-        done
-    done < <(ip -4 -o addr show scope global | awk '{print $4}' | sort -u)
-
-    # Individual candidates: the appliance is typically the network's
-    # DNS server (handed out by DHCP) and may sit behind the default
-    # gateway on a routed segment - probe both.
-    while read -r candidate; do
-        [[ "$candidate" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || continue
-        (
-            curl -fsS --max-time 1 --connect-timeout 1 \
-                "http://${candidate}:8080/api/v1/health" \
-                -o "$tmpdir/${candidate}" 2>/dev/null
-        ) &
-    done < <(
-        {
-            grep -E '^nameserver[[:space:]]' /etc/resolv.conf \
-                | awk '{print $2}' || true
-            ip route show default | awk '{print $3}' || true
-        } | sort -u
-    )
-
-    wait
-
-    local result
-    for result in "$tmpdir"/*; do
-        [[ -s "$result" ]] || continue
-        if grep -q '"firewall_backend"' "$result" 2>/dev/null; then
-            echo "http://$(basename "$result"):8080"
-        fi
-    done | sort -u
-
-    rm -rf "$tmpdir"
-}
-
-DISCOVERED_URLS="$(discover_appliances)"
-
-DEFAULT_URL=""
-
-if [[ -n "$DISCOVERED_URLS" ]]; then
-    ok "NetFortress appliance(s) discovered on the local network:"
-    sed 's/^/         /' <<<"$DISCOVERED_URLS"
-    DEFAULT_URL="$(head -n1 <<<"$DISCOVERED_URLS")"
-else
-    warn "No NetFortress appliance discovered on the local /24 network(s)"
-fi
-
-# Fall back to the appliance address configured by an earlier run.
-if [[ -z "$DEFAULT_URL" && -n "$EXISTING_FIREWALL_URL" ]]; then
-    ok "Using the previously configured appliance address as the default"
-    DEFAULT_URL="$EXISTING_FIREWALL_URL"
-fi
-
-if [[ -n "${PORTAL_FIREWALL_API_URL:-}" ]]; then
-    # Unattended installs may pass the address explicitly.
-    FIREWALL_API_URL="$PORTAL_FIREWALL_API_URL"
-    ok "Appliance API URL provided via PORTAL_FIREWALL_API_URL"
-else
-    log "CONFIGURING NETFORTRESS FIREWALL APPLIANCE"
-
-    echo
-    echo "Enter the NetFortress Firewall Appliance details."
-    echo "The portal drives DNS blocking through the appliance API"
-    echo "(domain blocks, approvals and licence limits)."
-    echo
-
-    if [[ -n "$DEFAULT_URL" ]]; then
-        FIREWALL_API_URL="$(ask_input "NetFortress Firewall Appliance" "Appliance API URL (Enter accepts the address shown in the box):" "$DEFAULT_URL")"
-    else
-        FIREWALL_API_URL="$(ask_input "NetFortress Firewall Appliance" "Appliance API URL (http://<appliance-ip>:8080):" "")"
-    fi
-fi
-
-if [[ ! "$FIREWALL_API_URL" =~ ^https?://[A-Za-z0-9.:-]+$ ]]; then
-    fail "Invalid appliance API URL: $FIREWALL_API_URL"
-fi
-
-FIREWALL_API_URL="${FIREWALL_API_URL%/}"
-
-# The appliance API listens on its fixed port: if the address was
-# entered without one, use the appliance API port.
-if [[ ! "$FIREWALL_API_URL" =~ :[0-9]+$ ]]; then
-    FIREWALL_API_URL="${FIREWALL_API_URL}:8080"
-fi
-
-if [[ -n "$DISCOVERED_URLS" ]] \
-   && ! grep -qx "$FIREWALL_API_URL" <<<"$DISCOVERED_URLS"; then
-    warn "Using a manually entered address (not one of the discovered appliances)"
-fi
+ok "Using the local NetFortress appliance at $FIREWALL_API_URL"
 
 # -- Appliance reachability ----------------------------------------------
 
@@ -1294,29 +1274,53 @@ if [[ "$TOKEN_REUSED" -eq 1 ]]; then
     ok "Appliance API token ready (reused from the previous installation)"
 else
 
-FIREWALL_ADMIN_USER="$(ask_input "NetFortress Firewall Appliance" "Appliance administrator username (used once to create the portal API token):" "")"
-[[ -n "$FIREWALL_ADMIN_USER" ]] || fail "Administrator username is required."
+# -- Appliance administrator -----------------------------------------------
+#
+# A fresh appliance has no users yet: the administrator account is
+# created here (bootstrap). On a rerun the existing administrator
+# signs in. These credentials open the appliance console at
+# http://<server-ip>:8080.
 
-FIREWALL_ADMIN_PASSWORD="$(ask_password "NetFortress Firewall Appliance" "Appliance administrator password:" "")"
-[[ -n "$FIREWALL_ADMIN_PASSWORD" ]] || fail "Administrator password is required."
-
-# -- Administrator login --------------------------------------------------
-
-LOGIN_RESPONSE="$(
-    curl -sS --max-time 15 \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"$FIREWALL_ADMIN_USER\",\"password\":\"$FIREWALL_ADMIN_PASSWORD\"}" \
-        "$FIREWALL_API_URL/api/v1/auth/login" 2>/dev/null || true
+AUTH_RESPONSE="$(
+    curl -fsS --max-time 10 \
+        "$FIREWALL_API_URL/api/v1/auth/status" 2>/dev/null || true
 )"
 
+BOOTSTRAP_REQUIRED="$(
+    jq -r '.bootstrap_required // false' <<<"$AUTH_RESPONSE" 2>/dev/null || true
+)"
+
+FIREWALL_ADMIN_USER="$(ask_input "NetFortress Appliance" "Appliance administrator username (opens the appliance console):" "")"
+[[ -n "$FIREWALL_ADMIN_USER" ]] || fail "Administrator username is required."
+
+FIREWALL_ADMIN_PASSWORD="$(ask_password "NetFortress Appliance" "Appliance administrator password:" "")"
+[[ -n "$FIREWALL_ADMIN_PASSWORD" ]] || fail "Administrator password is required."
+
+if [[ "$BOOTSTRAP_REQUIRED" == "true" ]]; then
+    ADMIN_RESPONSE="$(
+        curl -sS --max-time 15 \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"$FIREWALL_ADMIN_USER\",\"password\":\"$FIREWALL_ADMIN_PASSWORD\"}" \
+            "$FIREWALL_API_URL/api/v1/auth/bootstrap" 2>/dev/null || true
+    )"
+    ok "Appliance administrator account created"
+else
+    ADMIN_RESPONSE="$(
+        curl -sS --max-time 15 \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"$FIREWALL_ADMIN_USER\",\"password\":\"$FIREWALL_ADMIN_PASSWORD\"}" \
+            "$FIREWALL_API_URL/api/v1/auth/login" 2>/dev/null || true
+    )"
+fi
+
 FIREWALL_ADMIN_SESSION="$(
-    jq -r '.access_token // empty' <<<"$LOGIN_RESPONSE" 2>/dev/null || true
+    jq -r '.access_token // empty' <<<"$ADMIN_RESPONSE" 2>/dev/null || true
 )"
 
 [[ -n "$FIREWALL_ADMIN_SESSION" ]] \
-    || fail "Appliance administrator login failed (check username and password)"
+    || fail "Appliance administrator authentication failed (check username and password)"
 
-ok "Appliance administrator login succeeded"
+ok "Appliance administrator authenticated"
 
 SESSION_HEADER="Authorization: Bearer $FIREWALL_ADMIN_SESSION"
 
@@ -1581,11 +1585,13 @@ echo "  NGINX:      nginx"
 echo "  PHP-FPM:    php8.4-fpm"
 echo "  Portal API: $API_SERVICE"
 echo
-echo "NetFortress Firewall Appliance:"
-echo "  API URL:    $FIREWALL_API_URL"
-echo "  Edition:    $LICENSE_EDITION"
-echo "  API Token:  portal-provider (scopes: dns:read, dns:write)"
-echo "  Provider:   firewall (recorded in portal settings)"
+echo "NetFortress Firewall Appliance (on this server):"
+echo "  Web console:   http://$HOST_IP:8080"
+echo "  Captive portal: http://$HOST_IP:8420"
+echo "  Edition:       $LICENSE_EDITION"
+echo "  API:           http://127.0.0.1:8080 (portal provider)"
+echo "  API Token:     portal-provider (scopes: dns:read, dns:write)"
+echo "  Provider:      firewall (recorded in portal settings)"
 echo
 echo "Security:"
 echo "  Firewall:    NOT configured"

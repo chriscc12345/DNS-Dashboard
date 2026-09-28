@@ -11,8 +11,9 @@ set -Eeuo pipefail
 #                 FastAPI portal + Technitium DNS on this server)
 #
 #   firewall   - Management Portal + NetFortress Firewall Appliance
-#                (portal only; DNS/network services are provided by
-#                 a separate NetFortress Firewall Appliance over its API)
+#                (both installed on this server: the portal and the
+#                 NetFortress appliance; the portal drives DNS
+#                 blocking through the local appliance API)
 #
 #   netfortress - NetFortress Firewall Appliance standalone
 #                (the appliance only - no Management Portal, no
