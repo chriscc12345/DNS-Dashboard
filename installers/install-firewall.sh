@@ -1323,14 +1323,22 @@ if [[ "$BOOTSTRAP_REQUIRED" == "true" ]]; then
     # only so this installer can authenticate and mint the portal API
     # token; the setup page replaces it.
     FIREWALL_ADMIN_USER="portal-setup"
-    FIREWALL_ADMIN_PASSWORD="$(openssl rand -hex 24)"
+    # The appliance bootstrap enforces password complexity (at least
+    # three of lower/upper/digit/non-alphanumeric); a plain hex string
+    # only covers two categories. The suffix guarantees all four.
+    FIREWALL_ADMIN_PASSWORD="$(openssl rand -hex 24)Aa1!"
 
     ADMIN_RESPONSE="$(
-        curl -sS --max-time 15 \
+        curl -fsS --max-time 15 \
             -H "Content-Type: application/json" \
             -d "{\"username\":\"$FIREWALL_ADMIN_USER\",\"password\":\"$FIREWALL_ADMIN_PASSWORD\"}" \
             "$FIREWALL_API_URL/api/v1/auth/bootstrap" 2>/dev/null || true
     )"
+
+    # -f makes curl drop the body on HTTP errors, so an empty response
+    # means the appliance rejected the bootstrap request outright.
+    [[ -n "$ADMIN_RESPONSE" ]] \
+        || fail "The temporary appliance setup account could not be created (the appliance rejected the bootstrap request)"
 
     install -d -m 0755 /var/lib/portal
     printf '%s:%s\n' "$FIREWALL_ADMIN_USER" "$FIREWALL_ADMIN_PASSWORD" \
