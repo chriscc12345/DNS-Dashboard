@@ -1391,7 +1391,7 @@ TOKEN_RESPONSE="$(
     curl -sS --max-time 15 \
         -H "$SESSION_HEADER" \
         -H "Content-Type: application/json" \
-        -d '{"name":"portal-provider","scopes":["dns:read","dns:write"]}' \
+        -d '{"name":"portal-provider","scopes":["dns:read","dns:write","users:read","users:write"]}' \
         "$FIREWALL_API_URL/api/v1/auth/tokens" 2>/dev/null || true
 )"
 
@@ -1402,7 +1402,7 @@ FIREWALL_API_TOKEN="$(
 [[ -n "$FIREWALL_API_TOKEN" ]] \
     || fail "Could not create the appliance API token (check the appliance licence and administrator privileges)"
 
-ok "Appliance API token created (scopes: dns:read, dns:write)"
+ok "Appliance API token created (scopes: dns:read, dns:write, users:read, users:write)"
 
 TOKEN_HEADER="Authorization: Bearer $FIREWALL_API_TOKEN"
 
@@ -1607,7 +1607,7 @@ echo "  Web console:   http://$HOST_IP:8080"
 echo "  Captive portal: http://$HOST_IP:8420"
 echo "  Edition:       $LICENSE_EDITION"
 echo "  API:           http://127.0.0.1:8080 (portal provider)"
-echo "  API Token:     portal-provider (scopes: dns:read, dns:write)"
+echo "  API Token:     portal-provider (scopes: dns:read, dns:write, users:read, users:write)"
 echo "  Provider:      firewall (recorded in portal settings)"
 echo
 echo "Security:"
