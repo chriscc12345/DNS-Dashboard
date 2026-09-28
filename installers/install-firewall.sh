@@ -967,7 +967,7 @@ log "CONFIGURING APPLIANCE DNS ENFORCEMENT"
 # candidate-only mode (FIREWALL_ENABLE_LIVE_APPLY stays disabled)
 # until the administrator deploys policy from the appliance console.
 
-python3 - "$APPLIANCE_ENV" <<'PYAPPLIANCEENV' || fail "appliance environment patch failed"
+python3 - "$APPLIANCE_ENV" "$PORTAL_HOSTNAME" <<'PYAPPLIANCEENV' || fail "appliance environment patch failed"
 from pathlib import Path
 import sys
 
@@ -984,8 +984,21 @@ for key in ("FIREWALL_ENABLE_DNS_APPLY", "FIREWALL_ENABLE_POLICY_REFRESH"):
             text += chr(10)
         text += line + chr(10)
 
+# Combined deployment: until the unified administrator exists, the
+# appliance console redirects its visitors to the Portal setup page.
+# The appliance reads FIREWALL_PORTAL_SETUP_URL at request time and
+# only redirects while the temporary bootstrap account is enabled.
+url_line = "FIREWALL_PORTAL_SETUP_URL=https://" + sys.argv[2] + "/setup.php"
+lines = [
+    line for line in text.splitlines()
+    if not line.lstrip("#").startswith("FIREWALL_PORTAL_SETUP_URL=")
+]
+lines.append(url_line)
+text = "\n".join(lines) + "\n"
+
 path.write_text(text)
 print("[ OK ] DNS apply and policy refresh enabled")
+print("[ OK ] Appliance console setup redirect configured")
 PYAPPLIANCEENV
 
 systemctl restart firewall-api
