@@ -27,7 +27,7 @@ PORTAL_API="$PORTAL_ROOT/api"
 PORTAL_WEB="$PORTAL_ROOT/web"
 PORTAL_SCRIPTS="$PORTAL_ROOT/scripts"
 
-DB_DUMP="$SCRIPT_DIR/database/dnsapproval.dump"
+DB_DUMP="$SCRIPT_DIR/database/dnsapproval.sql"
 MONITORING_SCHEMA="$SCRIPT_DIR/database/monitoring.sql"
 REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
 PORTAL_ARCHIVE="$SCRIPT_DIR/portal/portal-source.tar.gz"
@@ -283,22 +283,17 @@ ok "PostgreSQL role passwords configured"
 
 log "RESTORING DATABASE"
 
-RESTORE_DUMP="/tmp/dnsapproval-restore.dump"
+# The baseline is plain SQL and restores into any database name:
+# the installer creates dnsapproval explicitly (a custom-format dump
+# would restore into whatever name it was created from).
 
-cp "$DB_DUMP" "$RESTORE_DUMP"
-chown postgres:postgres "$RESTORE_DUMP"
-chmod 600 "$RESTORE_DUMP"
+sudo -u postgres psql -qc "DROP DATABASE IF EXISTS $DB_NAME;"
+# Transitional cleanup: an earlier baseline restore created a stray
+# scratch database with this name; remove it if present.
+sudo -u postgres psql -qc "DROP DATABASE IF EXISTS dnsapproval_v2;" 2>/dev/null || true
+sudo -u postgres createdb "$DB_NAME"
 
-sudo -u postgres pg_restore \
-    --dbname=postgres \
-    --create \
-    --clean \
-    --if-exists \
-    --exit-on-error \
-    --no-owner \
-    "$RESTORE_DUMP"
-
-rm -f "$RESTORE_DUMP"
+sudo -u postgres psql -v ON_ERROR_STOP=1 -q -d "$DB_NAME" -f "$DB_DUMP"
 
 ok "Portal database restored"
 
