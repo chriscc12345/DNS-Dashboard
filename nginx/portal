@@ -60,4 +60,19 @@ server {
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
     }
+
+    # NetFortress appliance console (embedded same-origin by the
+    # portal's NetFortress service pages): the appliance's own
+    # /api/v1/ namespace is otherwise unused on the portal origin.
+    location /api/v1/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /netfortress-console/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
 }

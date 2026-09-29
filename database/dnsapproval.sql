@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Zl6dQn5nU9UN4q4L5lqWlDnfl1uyU7NyI7672ERNbrFRX4HAghp1uAEJth9wteG
+\restrict yfsenuV7nGZy2heOQ6Ec9ALJmjNSThE3Nei882eunnzTod4jMOEE4z26R9EESpL
 
 -- Dumped from database version 17.11 (Debian 17.11-0+deb13u1)
 -- Dumped by pg_dump version 17.11 (Debian 17.11-0+deb13u1)
@@ -625,6 +625,7 @@ COPY public.group_permissions (group_id, permission_id) FROM stdin;
 9	114
 9	115
 9	112
+1	117
 \.
 
 
@@ -675,6 +676,14 @@ COPY public.page_tabs (id, tab_group, tab_name, tab_href, tab_permission, tab_al
 26	technitium.php	Blocking	blocking.php	Blocking		2	2026-09-23 20:06:57.289918
 32	technitium.php	Recursion	recursion.php	Recursion		3	2026-09-23 21:05:39.012431
 33	network.php	Local Interface	network.php	Network		0	2026-09-23 21:30:59.23017
+35	netfortress.php	Reports	netfortress-reports.php	NetFortress		1	2026-09-29 23:01:34.208073
+36	netfortress.php	Firewall	netfortress-firewall.php	NetFortress		5	2026-09-29 23:01:34.208073
+37	netfortress.php	Devices	netfortress.php	NetFortress		0	2026-09-29 23:01:34.208073
+38	netfortress.php	Modules	netfortress-modules.php	NetFortress		6	2026-09-29 23:01:34.208073
+39	netfortress.php	Audit Log	netfortress-audit.php	NetFortress		2	2026-09-29 23:01:34.208073
+40	netfortress.php	Web Control	netfortress-web-control.php	NetFortress		4	2026-09-29 23:01:34.208073
+41	netfortress.php	Blocking	netfortress-blocking.php	NetFortress		3	2026-09-29 23:01:34.208073
+42	netfortress.php	Operations	netfortress-operations.php	NetFortress		7	2026-09-29 23:01:34.208073
 \.
 
 
@@ -737,6 +746,7 @@ COPY public.permissions (id, permission_key, permission_name, parent_id) FROM st
 112	monitor	Monitor	100
 114	edit_monitor	Edit Monitor	112
 115	view_monitor	View Monitor	112
+117	netfortress	NetFortress	53
 \.
 
 
@@ -912,6 +922,7 @@ COPY public.settings_fields (id, section_id, field_name, field_href, field_permi
 30	6	Technitium	technitium.php	Technitium	0	2026-09-23 20:06:57.08311
 31	6	Network	network.php	Network	1	2026-09-23 21:25:24.547488
 32	8	Network Services Backend	network-backend-status	System Status	-1	2026-09-29 16:52:03.273863
+33	6	NetFortress	netfortress.php	NetFortress	2	2026-09-29 23:01:34.2121
 \.
 
 
@@ -981,14 +992,14 @@ SELECT pg_catalog.setval('public.groups_id_seq', 536, true);
 -- Name: page_tabs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.page_tabs_id_seq', 33, true);
+SELECT pg_catalog.setval('public.page_tabs_id_seq', 42, true);
 
 
 --
 -- Name: permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.permissions_id_seq', 115, true);
+SELECT pg_catalog.setval('public.permissions_id_seq', 117, true);
 
 
 --
@@ -1016,7 +1027,7 @@ SELECT pg_catalog.setval('public.settings_field_sections_id_seq', 12, true);
 -- Name: settings_fields_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.settings_fields_id_seq', 32, true);
+SELECT pg_catalog.setval('public.settings_fields_id_seq', 33, true);
 
 
 --
@@ -1325,5 +1336,5 @@ ALTER TABLE ONLY public.user_custom_fields
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Zl6dQn5nU9UN4q4L5lqWlDnfl1uyU7NyI7672ERNbrFRX4HAghp1uAEJth9wteG
+\unrestrict yfsenuV7nGZy2heOQ6Ec9ALJmjNSThE3Nei882eunnzTod4jMOEE4z26R9EESpL
 
