@@ -1,104 +1,70 @@
-# Portal Server
+# Portal
 
-Automated Debian 13 deployment for the DNS Security Portal and the
-NetFortress Firewall Appliance.
+A clean, self-contained management portal for network security teams:
+user and permission management, a domain-blocking request workflow
+(pending / approved / denied), profiles with custom fields, two-factor
+authentication, notification channels, monitoring and appearance
+customisation — backed by PostgreSQL and served through NGINX.
 
-One launcher, three deployment options:
+The portal installs **without a network services backend**. After the
+initial setup you select one from **Settings → System Status** and the
+portal provisions and configures it in the background, then adapts
+its pages and permissions to the selected backend automatically.
 
-| Option | Deployment | What is installed |
-|---|---|---|
-| 1 | Management Portal + Technitium DNS | PostgreSQL, NGINX, PHP-FPM, FastAPI Portal, Technitium DNS |
-| 2 | Management Portal + NetFortress Firewall Appliance **(recommended)** | Both on one server: the full Portal stack **plus** the NetFortress appliance (API on 127.0.0.1:8080) |
-| 3 | NetFortress Firewall Appliance (standalone) | The appliance only — no Portal, no Technitium, no PostgreSQL |
+## Network services backends
 
-## Requirements
+| Backend | What it does |
+|---|---|
+| **Technitium DNS Server** | Downloaded from Technitium's official site and installed on this server. Domain blocking, DNS services (blocking, recursion, cache, DHCP, proxy) and the DNS certificate are managed from the portal. |
+| **NetFortress Firewall Appliance** | Downloaded from [netfortress.tech](https://netfortress.tech). Domain blocking with live DNS enforcement, user shadowing with licence account limits, and a full firewall appliance console alongside the portal. Learn more at the [NetFortress website](https://netfortress.tech). |
 
-- Clean Debian 13 installation
-- Root access
-- Internet access during installation (packages, updates, licensing server)
+The portal is the source of truth on both integrations: users live in
+the portal and are pushed to the backend; the request workflow drives
+blocking through whichever backend is active.
 
 ## Installation
 
-Clone the repository and run the launcher:
+Requirements: a clean Debian 13 (trixie) server, root access.
 
-    git clone https://github.com/chriscc12345/DNS-Dashboard.git /opt/portal-installer
-    cd /opt/portal-installer
-    ./install.sh
+```bash
+git clone https://github.com/chriscc12345/dns-dashboard.git
+cd dns-dashboard
+./install.sh                # interactive
+# or unattended:
+./install.sh --hostname portal.example.com
+```
 
-The launcher presents a graphical menu (whiptail). For unattended installs:
+The installer sets up PostgreSQL, NGINX, PHP-FPM and the Portal API,
+then prints the address of the initial setup page.
 
-    ./install.sh --backend technitium   # option 1
-    ./install.sh --backend firewall     # option 2
-    ./install.sh --backend netfortress  # option 3
+## After installation
 
-All input prompts are graphical dialog boxes when a terminal is
-available, with plain-text fallbacks for piped installs.
+1. Open `https://<portal-hostname>/` and complete the initial setup
+   (the first administrator account).
+2. Sign in and open **Settings → System Status**.
+3. Select **Technitium DNS Server** or **NetFortress Firewall
+   Appliance** and click **Provision Backend**. The portal downloads,
+   installs and configures the backend in the background — progress is
+   shown on the page — and the portal adapts once it completes.
 
-## Option 2 — Management Portal + NetFortress (recommended)
+Blocked-domain visitors reach the Access Denied page with a request
+form; approved requests unblock the domain for the allowed time and
+re-block automatically when it expires.
 
-Installs both on the same server:
+## Updates
 
-- **Portal**: NGINX on 80/443 (its own vhost), PHP-FPM, PostgreSQL,
-  FastAPI on 127.0.0.1:8000
-- **NetFortress appliance**: API on 8080 (web console
-  `http://<server>:8080`), DNS block page on port 80, captive portal
-  on 8420, dnsmasq DNS, Kea DHCP, Squid, blocklists, guarded
-  transaction tooling
+Portal releases are delivered from the NetFortress update server:
+installed portals periodically check for new versions and show an
+update banner in the admin UI. (The appliance receives its updates
+through the same channel via its licence sync.)
 
-The Portal drives DNS blocking through the appliance API via the
-provider abstraction (`portal_settings.dns_provider = firewall`):
+## Repository layout
 
-- Unblock requests, approvals and denials apply on the appliance
-  within seconds (guarded DNS transactions; the appliance reconciler
-  catches up within a minute as a safety net)
-- **User sync**: adding a user in the Portal mirrors the user into
-  the appliance; when the appliance licence reaches its account
-  limit the Portal shows the appliance's limit message and the user
-  is not created
-- **Unified administrator setup**: the Portal setup page
-  (`https://<hostname>/setup.php`) creates ONE administrator account
-  for both the Portal and the appliance — no credentials are entered
-  during installation
-- Licence edition limits (including account limits) apply to Portal
-  user creation
-
-## NetFortress licensing
-
-- A fresh appliance starts a **60-day full-feature trial
-  automatically** on install (issued by the licensing server, one
-  trial per installation)
-- When the trial runs out, the appliance **automatically continues
-  on the free Home Lite licence** (10 devices, one account, full
-  core protection)
-- Paid editions (Home, Essential, Professional, Corporate) unlock
-  more devices, accounts and features
-
-## Update framework
-
-Installed portals track an update level
-(`/var/lib/portal/update-version`). The installer applies all
-pending updates automatically at install time; each update is
-SHA256-verified, backed up before applying and rolled back on
-failure.
-
-Current updates:
-
-1. User Profile case-insensitive username fixes
-2. User management and initial administrator setup
-3. Profiles, appearance, themes and favicon management
-4. Complete customization configuration and permissions
-5. Portal identity, two-factor authentication, monitoring and DNS services
-6. Network services provider abstraction and Firewall Appliance support
-7. Unified initial administrator setup (Portal + appliance)
-
-## Security notes
-
-- Portal and appliance authentication are independent and
-  portal-owned (bcrypt + optional TOTP two-factor)
-- The appliance integration uses a scoped API token
-  (`dns:read`, `dns:write`, `users:read`, `users:write`)
-- Firewall rule enforcement stays in the appliance's guarded
-  candidate-only mode until an administrator deploys policy from the
-  appliance console; DNS blocking enforces immediately
-- No firewall or fail2ban configuration is performed by these
-  installers beyond what the NetFortress appliance itself manages
+```
+install.sh                      single portal installer
+portal/portal-source.tar.gz     clean portal v1.0 source
+database/                       database baselines (portal + monitoring)
+nginx/                          portal NGINX vhost template
+systemd/                        portal-api + heartbeat units
+requirements.txt                Python dependencies
+```
