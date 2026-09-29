@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ybqxxcx6gte5nm7IkeFLw3PDgU39plvliDg6Ohk2oSicteqRbdTaFLATmfq2bTn
+\restrict Zl6dQn5nU9UN4q4L5lqWlDnfl1uyU7NyI7672ERNbrFRX4HAghp1uAEJth9wteG
 
 -- Dumped from database version 17.11 (Debian 17.11-0+deb13u1)
 -- Dumped by pg_dump version 17.11 (Debian 17.11-0+deb13u1)
@@ -755,13 +755,10 @@ COPY public.portal_auth (id, username, password_hash, is_disabled, must_change_p
 COPY public.portal_settings (setting_key, setting_value, updated_at) FROM stdin;
 default_country_iso	ZA	2026-09-20 17:36:24.407842
 monitor_card_background	#1d242a	2026-09-28 17:49:05.895366
-company_logo	uploads/appearance/logo_75692baaae5fd877a69b5707cefe6f94.webp	2026-09-20 20:49:32.784173
-banner_image	uploads/appearance/banner_e2a25e4456be4c922a976c422472fd89.webp	2026-09-25 09:56:44.706062
 monitor_card_opacity	12	2026-09-28 17:49:05.895366
 theme_basic_sidebar_profile_background	#142330	2026-09-21 10:17:21.713589
 theme_basic_banner_fallback	#18232a	2026-09-21 10:17:21.713589
 banner_fit_mode	fit	2026-09-25 09:56:44.706062
-login_background_image	uploads/appearance/login_277c04f208af649b7615e6d3bcfdffa5.webp	2026-09-21 07:09:06.965128
 monitor_text_color		2026-09-28 17:49:05.895366
 login_title	DNS Security Dashboard	2026-09-22 16:26:29.650797
 theme_basic_page_background	#111c23	2026-09-21 10:17:21.713589
@@ -865,12 +862,15 @@ weather_latitude	-25.8	2026-09-22 21:45:30.386174
 weather_longitude	29.4	2026-09-22 21:45:30.386174
 notify_pushbullet_token	o.e1zh3yfVPraVKW38DeO4osfJSi6JQt8g	2026-09-23 17:56:22.730989
 notify_pushbullet_channel		2026-09-23 17:56:22.730989
-monitor_background_image	uploads/appearance/monitor_bg_7aa6d06b94c16df9eee945893ed7ee66.webp	2026-09-28 17:49:05.895366
 monitor_table_color	#d41111	2026-09-28 17:49:05.895366
 monitor_table_alt_color	#c80e0e	2026-09-28 17:49:05.895366
 monitor_table_grid_color	#bf0d0d	2026-09-28 17:49:05.895366
 monitor_table_opacity	100	2026-09-28 17:49:05.895366
 monitor_table_grid_enabled	0	2026-09-28 17:49:05.895366
+company_logo		2026-09-20 20:49:32.784173
+banner_image		2026-09-25 09:56:44.706062
+login_background_image		2026-09-21 07:09:06.965128
+monitor_background_image		2026-09-28 17:49:05.895366
 \.
 
 
@@ -1325,5 +1325,5 @@ ALTER TABLE ONLY public.user_custom_fields
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ybqxxcx6gte5nm7IkeFLw3PDgU39plvliDg6Ohk2oSicteqRbdTaFLATmfq2bTn
+\unrestrict Zl6dQn5nU9UN4q4L5lqWlDnfl1uyU7NyI7672ERNbrFRX4HAghp1uAEJth9wteG
 
