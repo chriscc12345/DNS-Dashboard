@@ -46,9 +46,9 @@
     },
     {
       "version": 8,
-      "name": "Provider Token Re-Mint at Setup Completion",
+      "name": "Provider Token Re-Mint and Portal-Owned User Management",
       "filename": "update-008.sh",
-      "sha256": "3c5d70dabac37339cefb94c831d21df6ad30d0aaa0596bbb20ed4e07bc3ceea4"
+      "sha256": "bb35bb0ddde3ecc6ea70953f3a2e3f7b29550eab627cfccb248ae7699af3ddb0"
     }
   ]
 }
