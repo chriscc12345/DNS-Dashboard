@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict C5crUfbaseoc2UCL7e7A9cLZBGFhPil602VhFxRkFdunSffhAlIkJYWFokw6OZH
+\restrict KSIiNzmlZWrwX6AG7zpUUhgi9vzOlfE9ol6VXcC6NSKLvk3XJbFDyCh7BjkEBvv
 
 -- Dumped from database version 17.11 (Debian 17.11-0+deb13u1)
 -- Dumped by pg_dump version 17.11 (Debian 17.11-0+deb13u1)
@@ -631,7 +631,6 @@ COPY public.group_permissions (group_id, permission_id) FROM stdin;
 1	120
 1	121
 1	122
-1	123
 1	124
 1	125
 \.
@@ -685,7 +684,6 @@ COPY public.page_tabs (id, tab_group, tab_name, tab_href, tab_permission, tab_al
 32	technitium.php	Recursion	recursion.php	Recursion		3	2026-09-23 21:05:39.012431
 33	network.php	Local Interface	network.php	Network		0	2026-09-23 21:30:59.23017
 35	netfortress.php	Reports	netfortress-reports.php	NetFortress Reports		1	2026-09-29 23:01:34.208073
-36	netfortress.php	Firewall	netfortress-firewall.php	NetFortress Firewall		5	2026-09-29 23:01:34.208073
 37	netfortress.php	Devices	netfortress.php	NetFortress Devices		0	2026-09-29 23:01:34.208073
 38	netfortress.php	Modules	netfortress-modules.php	NetFortress Modules		6	2026-09-29 23:01:34.208073
 39	netfortress.php	Audit Log	netfortress-audit.php	NetFortress Audit Log		2	2026-09-29 23:01:34.208073
@@ -760,7 +758,6 @@ COPY public.permissions (id, permission_key, permission_name, parent_id) FROM st
 120	netfortress_audit_log	NetFortress Audit Log	117
 121	netfortress_blocking	NetFortress Blocking	117
 122	netfortress_web_control	NetFortress Web Control	117
-123	netfortress_firewall	NetFortress Firewall	117
 124	netfortress_modules	NetFortress Modules	117
 125	netfortress_operations	NetFortress Operations	117
 \.
@@ -1352,5 +1349,5 @@ ALTER TABLE ONLY public.user_custom_fields
 -- PostgreSQL database dump complete
 --
 
-\unrestrict C5crUfbaseoc2UCL7e7A9cLZBGFhPil602VhFxRkFdunSffhAlIkJYWFokw6OZH
+\unrestrict KSIiNzmlZWrwX6AG7zpUUhgi9vzOlfE9ol6VXcC6NSKLvk3XJbFDyCh7BjkEBvv
 
