@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "latest_update": 7,
+  "latest_update": 8,
   "updates": [
     {
       "version": 1,
@@ -43,6 +43,12 @@
       "name": "Unified Initial Administrator Setup",
       "filename": "update-007.sh",
       "sha256": "efae6e6887d5496d8d0ca18b698aec78499acd88fc9805b20d3122102ada0764"
+    },
+    {
+      "version": 8,
+      "name": "Provider Token Re-Mint at Setup Completion",
+      "filename": "update-008.sh",
+      "sha256": "3c5d70dabac37339cefb94c831d21df6ad30d0aaa0596bbb20ed4e07bc3ceea4"
     }
   ]
 }
