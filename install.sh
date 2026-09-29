@@ -198,7 +198,7 @@ log "INSTALLING REQUIRED PACKAGES"
 
 apt-get -yq install \
     ca-certificates curl git jq openssl patch python3 sudo unzip \
-    nginx php8.4-cli php8.4-curl php8.4-fpm php8.4-mbstring \
+    nginx php8.4-cli php8.4-curl php8.4-fpm php8.4-gd php8.4-mbstring \
     php8.4-pgsql php8.4-xml postgresql postgresql-client \
     python3-pip python3-venv \
     || fail "Required package installation failed"
@@ -458,6 +458,14 @@ chmod 755 "$PORTAL_WEB"
 find "$PORTAL_WEB" -type d -exec chmod 755 {} \;
 find "$PORTAL_WEB" -type f -exec chmod 644 {} \;
 
+# Upload directories (www-data-writable): the appearance/profile
+# upload handlers store images here and create subfolders on demand,
+# but the parent directories must exist after a clean install.
+mkdir -p "$PORTAL_WEB/uploads/appearance" \
+         "$PORTAL_WEB/uploads/profiles/tmp"
+chown -R www-data:www-data "$PORTAL_WEB/uploads"
+find "$PORTAL_WEB/uploads" -type d -exec chmod 755 {} \;
+
 ok "Portal permissions configured"
 
 ###############################################################################
@@ -480,6 +488,20 @@ ok "Portal systemd services installed"
 ###############################################################################
 
 log "CONFIGURING PHP-FPM"
+
+# Upload limits: the appearance UI accepts images up to 25MB and
+# animated webm up to 20MB. PHP defaults (2M/8M) reject those and the
+# handlers return HTML errors the frontend cannot parse as JSON.
+cat > /etc/php/8.4/fpm/conf.d/99-portal-uploads.ini <<'EOF'
+; Portal appearance/profile uploads: UI allows images up to 25MB
+upload_max_filesize = 25M
+post_max_size = 30M
+memory_limit = 256M
+max_file_uploads = 20
+EOF
+cp /etc/php/8.4/fpm/conf.d/99-portal-uploads.ini \
+   /etc/php/8.4/cli/conf.d/99-portal-uploads.ini \
+   || fail "Could not install PHP upload limits"
 
 systemctl enable php8.4-fpm
 systemctl restart php8.4-fpm

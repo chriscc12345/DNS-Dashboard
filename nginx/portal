@@ -16,6 +16,10 @@ server {
 
     server_name __PORTAL_HOSTNAME__;
 
+    # Appearance/profile uploads: nginx's default 1M body limit would
+    # return an HTML 413 page that the frontend cannot parse as JSON.
+    client_max_body_size 30m;
+
     root /opt/portal/web;
 
     index index.php index.html index.htm;
