@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict KSIiNzmlZWrwX6AG7zpUUhgi9vzOlfE9ol6VXcC6NSKLvk3XJbFDyCh7BjkEBvv
+\restrict fMAhVDDR98SRlNfX9jdvugFN1725ZgWDWMA7JfJSXz0Jdd72Xx5A4GBSOH8GTBl
 
 -- Dumped from database version 17.11 (Debian 17.11-0+deb13u1)
 -- Dumped by pg_dump version 17.11 (Debian 17.11-0+deb13u1)
@@ -690,6 +690,7 @@ COPY public.page_tabs (id, tab_group, tab_name, tab_href, tab_permission, tab_al
 40	netfortress.php	Web Control	netfortress-web-control.php	NetFortress Web Control		4	2026-09-29 23:01:34.208073
 41	netfortress.php	Blocking	netfortress-blocking.php	NetFortress Blocking		3	2026-09-29 23:01:34.208073
 42	netfortress.php	Operations	netfortress-operations.php	NetFortress Operations		7	2026-09-29 23:01:34.208073
+43	network.php	NetFortress	netfortress-network.php	Network		1	2026-09-29 23:58:59.409951
 \.
 
 
@@ -1005,7 +1006,7 @@ SELECT pg_catalog.setval('public.groups_id_seq', 536, true);
 -- Name: page_tabs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.page_tabs_id_seq', 42, true);
+SELECT pg_catalog.setval('public.page_tabs_id_seq', 43, true);
 
 
 --
@@ -1349,5 +1350,5 @@ ALTER TABLE ONLY public.user_custom_fields
 -- PostgreSQL database dump complete
 --
 
-\unrestrict KSIiNzmlZWrwX6AG7zpUUhgi9vzOlfE9ol6VXcC6NSKLvk3XJbFDyCh7BjkEBvv
+\unrestrict fMAhVDDR98SRlNfX9jdvugFN1725ZgWDWMA7JfJSXz0Jdd72Xx5A4GBSOH8GTBl
 
