@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict fMAhVDDR98SRlNfX9jdvugFN1725ZgWDWMA7JfJSXz0Jdd72Xx5A4GBSOH8GTBl
+\restrict omFsMy4bos3VmbAQf7CTaqnNy17O6gnAcnwmzMkkXeVygmxMg3c9bNlSavDCwY3
 
 -- Dumped from database version 17.11 (Debian 17.11-0+deb13u1)
 -- Dumped by pg_dump version 17.11 (Debian 17.11-0+deb13u1)
@@ -629,10 +629,13 @@ COPY public.group_permissions (group_id, permission_id) FROM stdin;
 1	118
 1	119
 1	120
-1	121
-1	122
 1	124
 1	125
+1	126
+1	127
+1	128
+1	129
+1	130
 \.
 
 
@@ -685,12 +688,15 @@ COPY public.page_tabs (id, tab_group, tab_name, tab_href, tab_permission, tab_al
 33	network.php	Local Interface	network.php	Network		0	2026-09-23 21:30:59.23017
 35	netfortress.php	Reports	netfortress-reports.php	NetFortress Reports		1	2026-09-29 23:01:34.208073
 37	netfortress.php	Devices	netfortress.php	NetFortress Devices		0	2026-09-29 23:01:34.208073
-38	netfortress.php	Modules	netfortress-modules.php	NetFortress Modules		6	2026-09-29 23:01:34.208073
 39	netfortress.php	Audit Log	netfortress-audit.php	NetFortress Audit Log		2	2026-09-29 23:01:34.208073
-40	netfortress.php	Web Control	netfortress-web-control.php	NetFortress Web Control		4	2026-09-29 23:01:34.208073
-41	netfortress.php	Blocking	netfortress-blocking.php	NetFortress Blocking		3	2026-09-29 23:01:34.208073
-42	netfortress.php	Operations	netfortress-operations.php	NetFortress Operations		7	2026-09-29 23:01:34.208073
 43	network.php	NetFortress	netfortress-network.php	Network		1	2026-09-29 23:58:59.409951
+44	netfortress.php	Application Blocking	netfortress-applications.php	NetFortress Application Blocking		4	2026-09-30 00:49:20.425741
+45	netfortress.php	Policy acceptance	netfortress-policy.php	NetFortress Policy acceptance		6	2026-09-30 00:49:20.425741
+46	netfortress.php	Block list	netfortress-blocklist.php	NetFortress Block list		3	2026-09-30 00:49:20.425741
+47	netfortress.php	Web Proxy and Cache	netfortress-proxy.php	NetFortress Web Proxy and Cache		5	2026-09-30 00:49:20.425741
+48	netfortress.php	Block Page	netfortress-blockpage.php	NetFortress Block Page		7	2026-09-30 00:49:20.425741
+38	netfortress.php	Modules	netfortress-modules.php	NetFortress Modules		8	2026-09-29 23:01:34.208073
+42	netfortress.php	Operations	netfortress-operations.php	NetFortress Operations		9	2026-09-29 23:01:34.208073
 \.
 
 
@@ -757,10 +763,13 @@ COPY public.permissions (id, permission_key, permission_name, parent_id) FROM st
 118	netfortress_devices	NetFortress Devices	117
 119	netfortress_reports	NetFortress Reports	117
 120	netfortress_audit_log	NetFortress Audit Log	117
-121	netfortress_blocking	NetFortress Blocking	117
-122	netfortress_web_control	NetFortress Web Control	117
 124	netfortress_modules	NetFortress Modules	117
 125	netfortress_operations	NetFortress Operations	117
+126	netfortress_blocklist	NetFortress Block list	117
+127	netfortress_applications	NetFortress Application Blocking	117
+128	netfortress_proxy	NetFortress Web Proxy and Cache	117
+129	netfortress_policy_acceptance	NetFortress Policy acceptance	117
+130	netfortress_block_page	NetFortress Block Page	117
 \.
 
 
@@ -1006,14 +1015,14 @@ SELECT pg_catalog.setval('public.groups_id_seq', 536, true);
 -- Name: page_tabs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.page_tabs_id_seq', 43, true);
+SELECT pg_catalog.setval('public.page_tabs_id_seq', 48, true);
 
 
 --
 -- Name: permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.permissions_id_seq', 125, true);
+SELECT pg_catalog.setval('public.permissions_id_seq', 130, true);
 
 
 --
@@ -1350,5 +1359,5 @@ ALTER TABLE ONLY public.user_custom_fields
 -- PostgreSQL database dump complete
 --
 
-\unrestrict fMAhVDDR98SRlNfX9jdvugFN1725ZgWDWMA7JfJSXz0Jdd72Xx5A4GBSOH8GTBl
+\unrestrict omFsMy4bos3VmbAQf7CTaqnNy17O6gnAcnwmzMkkXeVygmxMg3c9bNlSavDCwY3
 
