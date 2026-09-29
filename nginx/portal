@@ -74,6 +74,15 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
+    # NetFortress console assets: the appliance SPA references its
+    # css/js/logo with absolute /assets/ paths, which must resolve to the
+    # appliance when the console is embedded at /netfortress-console/.
+    location /assets/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
     location /netfortress-console/ {
         proxy_pass http://127.0.0.1:8080/;
         proxy_set_header Host $host;
