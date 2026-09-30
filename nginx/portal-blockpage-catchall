@@ -12,5 +12,13 @@ server {
 
     server_name _;
 
+    # Two kinds of visitors arrive here:
+    #  - a redirected client whose DNS answer was this address: its Host
+    #    header is the blocked DOMAIN -> send it to the Access Denied page.
+    #  - an administrator browsing straight to the appliance address: the
+    #    Host header is the IP itself -> land on the portal login.
+    if ($host ~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$) {
+        return 302 http://__PORTAL_HOSTNAME__/login.php;
+    }
     return 302 http://__PORTAL_HOSTNAME__/blocked.php?host=$host;
 }
