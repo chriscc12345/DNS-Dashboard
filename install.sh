@@ -282,6 +282,19 @@ ok "PostgreSQL role passwords configured"
 # Restore database baselines
 ###############################################################################
 
+# The baseline SQL files are restored by the postgres system user
+# (sudo -u postgres psql -f ...). When the repository is cloned into a
+# directory that user cannot traverse - /root is mode 700 - the restore
+# fails with "Permission denied". Stage the files into a world-readable
+# temporary directory so the installer works from any location.
+DB_STAGE="$(mktemp -d /tmp/portal-db-stage.XXXXXX)"
+chmod 755 "$DB_STAGE"
+cp "$SCRIPT_DIR/database/dnsapproval.sql" "$DB_STAGE/dnsapproval.sql"
+cp "$SCRIPT_DIR/database/monitoring.sql" "$DB_STAGE/monitoring.sql"
+chmod 644 "$DB_STAGE/dnsapproval.sql" "$DB_STAGE/monitoring.sql"
+DB_DUMP="$DB_STAGE/dnsapproval.sql"
+MONITORING_SCHEMA="$DB_STAGE/monitoring.sql"
+
 log "RESTORING DATABASE"
 
 # The baseline is plain SQL and restores into any database name:
