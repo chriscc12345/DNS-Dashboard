@@ -1,0 +1,16 @@
+# Blocked-domain catch-all: the DNS backend answers blocked domains
+# with this host's address; browsers arrive on port 80 with the blocked
+# site as the Host header and are sent to the portal's Access Denied
+# page, where users can request access (the portal request workflow
+# approves/unblocks through the active network services backend).
+# Plain http on purpose: clients that have not installed the network
+# certificate yet must be able to reach the block page without a TLS
+# trust decision.
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name _;
+
+    return 302 http://__PORTAL_HOSTNAME__/blocked.php?host=$host;
+}

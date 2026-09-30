@@ -32,6 +32,7 @@ MONITORING_SCHEMA="$SCRIPT_DIR/database/monitoring.sql"
 REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
 PORTAL_ARCHIVE="$SCRIPT_DIR/portal/portal-source.tar.gz"
 NGINX_CONFIG="$SCRIPT_DIR/nginx/portal"
+CATCHALL_CONFIG="$SCRIPT_DIR/nginx/portal-blockpage-catchall"
 PORTAL_SERVICE="$SCRIPT_DIR/systemd/portal-api.service"
 HEARTBEAT_SERVICE="$SCRIPT_DIR/systemd/portal-heartbeat.service"
 HEARTBEAT_TIMER="$SCRIPT_DIR/systemd/portal-heartbeat.timer"
@@ -564,6 +565,18 @@ sed -i \
 ln -sfn \
     /etc/nginx/sites-available/portal \
     /etc/nginx/sites-enabled/portal
+
+cp "$CATCHALL_CONFIG" /etc/nginx/sites-available/portal-blockpage-catchall
+
+rm -f /etc/nginx/sites-enabled/portal-blockpage-catchall
+
+sed -i \
+    "s/__PORTAL_HOSTNAME__/$PORTAL_HOSTNAME/g" \
+    /etc/nginx/sites-available/portal-blockpage-catchall
+
+ln -sfn \
+    /etc/nginx/sites-available/portal-blockpage-catchall \
+    /etc/nginx/sites-enabled/portal-blockpage-catchall
 
 nginx -t
 
